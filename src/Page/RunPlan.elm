@@ -1,4 +1,4 @@
-module Page.Home exposing (Model, Msg, init, toSession, update, view)
+module Page.RunPlan exposing (Model, Msg, init, toSession, update, view)
 
 import Counter
 import Html exposing (Html, button, div, span, text)
@@ -9,29 +9,24 @@ import Session exposing (Session)
 
 type alias Model =
     { session : Session
-    , counter : Int
     , plan : Result String Plan
     }
 
 
 type Msg
-    = Increment
-    | Decrement
+    = Noop
 
 
 init : Session -> ( Model, Cmd Msg )
 init session =
-    ( { session = session, counter = 1, plan = Plan.decode "" }, Cmd.none )
+    ( { session = session, plan = Plan.decode "" }, Cmd.none )
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        Increment ->
-            ( { model | counter = Counter.increment model.counter }, Cmd.none )
-
-        Decrement ->
-            ( { model | counter = Counter.decrement model.counter }, Cmd.none )
+        Noop ->
+            ( model, Cmd.none )
 
 
 toSession : Model -> Session
@@ -41,15 +36,11 @@ toSession { session } =
 
 viewContent : Model -> Html Msg
 viewContent model =
-    div []
-        [ button [ onClick Decrement ] [ text "-" ]
-        , span [] [ text (String.fromInt model.counter) ]
-        , button [ onClick Increment ] [ text "+" ]
-        ]
+    div [] []
 
 
 view : Model -> { content : Html Msg, title : String }
 view model =
     { content = viewContent model
-    , title = "Home"
+    , title = "Run Plan"
     }
