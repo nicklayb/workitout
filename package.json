@@ -4,7 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "dev": "node build.js --watch"
+    "dev": "node build.js --watch",
+    "build": "node build.js"
   },
   "author": "",
   "license": "ISC",
