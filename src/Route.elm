@@ -2,17 +2,20 @@ module Route exposing (Route(..), fromUrl, routeToString, urlChanged)
 
 import Url exposing (Url)
 import Url.Builder as UrlBuilder
-import Url.Parser as Parser exposing (Parser, oneOf)
+import Url.Parser as Parser exposing ((</>), (<?>), Parser, oneOf, s)
+import Url.Parser.Query as Query
 
 
 type Route
     = Home
+    | RunPlan (Maybe String)
 
 
 parser : Parser (Route -> a) a
 parser =
     oneOf
         [ Parser.map Home Parser.top
+        , Parser.map RunPlan (s "plans" </> s "run" <?> Query.string "path")
         ]
 
 
@@ -28,6 +31,18 @@ routeToString page =
             case page of
                 Home ->
                     ( [], [] )
+
+                RunPlan maybePath ->
+                    let
+                        queryParams =
+                            case maybePath of
+                                Just path ->
+                                    [ UrlBuilder.string "path" path ]
+
+                                _ ->
+                                    []
+                    in
+                    ( [ "plans", "run" ], queryParams )
     in
     "/" ++ UrlBuilder.relative pieces query
 

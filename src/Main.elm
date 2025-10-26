@@ -8,6 +8,7 @@ import Page
 import Page.Blank as BlankPage
 import Page.Errors.NotFound as NotFoundPage
 import Page.Home as HomePage
+import Page.RunPlan as RunPlanPage
 import Route exposing (Route(..))
 import Session exposing (Session)
 import Url exposing (Url)
@@ -17,6 +18,7 @@ type Model
     = Redirect Session
     | NotFound Session
     | Home HomePage.Model
+    | RunPlan RunPlanPage.Model
 
 
 type Msg
@@ -24,6 +26,7 @@ type Msg
     | ChangedUrl Url
     | ClickedLink Browser.UrlRequest
     | GotHomeMsg HomePage.Msg
+    | GotRunPlanMsg RunPlanPage.Msg
 
 
 main : Program AppConfig Model Msg
@@ -86,6 +89,10 @@ update msg model =
             HomePage.update subMsg home
                 |> updateWith Home GotHomeMsg model
 
+        ( GotRunPlanMsg subMsg, RunPlan home ) ->
+            RunPlanPage.update subMsg home
+                |> updateWith RunPlan GotRunPlanMsg model
+
         ( _, _ ) ->
             ( model, Cmd.none )
 
@@ -100,6 +107,10 @@ changeRouteTo maybeRoute model =
         Just Route.Home ->
             HomePage.init session
                 |> updateWith Home GotHomeMsg model
+
+        Just (Route.RunPlan maybeString) ->
+            RunPlanPage.init maybeString session
+                |> updateWith RunPlan GotRunPlanMsg model
 
         Nothing ->
             ( NotFound session, Cmd.none )
@@ -124,6 +135,9 @@ toSession page =
         Home home ->
             HomePage.toSession home
 
+        RunPlan home ->
+            RunPlanPage.toSession home
+
 
 putSession : Session -> Model -> Model
 putSession session page =
@@ -136,6 +150,9 @@ putSession session page =
 
         Home home ->
             Home (Session.putSession session home)
+
+        RunPlan runPlan ->
+            RunPlan (Session.putSession session runPlan)
 
 
 view : Model -> Document Msg
@@ -159,6 +176,9 @@ view model =
 
         Home home ->
             viewPage Page.Home GotHomeMsg (HomePage.view home)
+
+        RunPlan runPlan ->
+            viewPage Page.RunPlan GotRunPlanMsg (RunPlanPage.view runPlan)
 
         _ ->
             Page.view session Page.Other NotFoundPage.view

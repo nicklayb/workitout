@@ -8,22 +8,17 @@ import Session exposing (Session)
 type Page
     = Other
     | Home
+    | RunPlan
 
 
 view : Session -> Page -> { title : String, content : Html msg } -> Document msg
 view _ page { title, content } =
-    { title = title ++ " :: Meep"
+    { title = title ++ " :: WorkItOut"
     , body =
-        [ viewHeader page
-        , content
+        [ content
         , viewFooter
         ]
     }
-
-
-viewHeader : Page -> Html msg
-viewHeader _ =
-    div [] []
 
 
 viewFooter : Html msg

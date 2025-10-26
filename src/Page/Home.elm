@@ -1,37 +1,34 @@
 module Page.Home exposing (Model, Msg, init, toSession, update, view)
 
-import Counter
 import Html exposing (Html, button, div, span, text)
+import Html.Attributes exposing (class)
 import Html.Events exposing (onClick)
 import Plan exposing (Plan)
 import Session exposing (Session)
+import Ziplist exposing (Ziplist(..))
 
 
 type alias Model =
     { session : Session
-    , counter : Int
+    , items : Ziplist String
     , plan : Result String Plan
     }
 
 
 type Msg
-    = Increment
-    | Decrement
+    = Next
 
 
 init : Session -> ( Model, Cmd Msg )
 init session =
-    ( { session = session, counter = 1, plan = Plan.decode "" }, Cmd.none )
+    ( { session = session, items = Ziplist.init [ "a", "b", "c", "d", "e" ], plan = Plan.decode "" }, Cmd.none )
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        Increment ->
-            ( { model | counter = Counter.increment model.counter }, Cmd.none )
-
-        Decrement ->
-            ( { model | counter = Counter.decrement model.counter }, Cmd.none )
+        Next ->
+            ( { model | items = Ziplist.next model.items }, Cmd.none )
 
 
 toSession : Model -> Session
@@ -39,12 +36,33 @@ toSession { session } =
     session
 
 
+viewItems : Model -> Html Msg
+viewItems model =
+    case model.items of
+        Empty ->
+            text "empty"
+
+        Ziplist back current front ->
+            let
+                viewItem isCurrent item =
+                    let
+                        itemClasses =
+                            if isCurrent then
+                                [ class "text-pink-500" ]
+
+                            else
+                                []
+                    in
+                    div itemClasses [ text item ]
+            in
+            div [] (List.map (viewItem False) (List.reverse back) ++ viewItem True current :: List.map (viewItem False) front)
+
+
 viewContent : Model -> Html Msg
 viewContent model =
     div []
-        [ button [ onClick Decrement ] [ text "-" ]
-        , span [] [ text (String.fromInt model.counter) ]
-        , button [ onClick Increment ] [ text "+" ]
+        [ viewItems model
+        , button [ onClick Next ] [ text ">" ]
         ]
 
 

@@ -1,127 +1,131 @@
-monday:
-  rounds: 5
-  steps:
-    - name: Countdown
-      type: break
-      seconds: 5
+description: ChatGPT generated plan
+author:
+  name: Nicolas Boisvert
+  email: nicklay@me.com
 
-    - name: Burpees
-      seconds: 40
+planning:
+  days: 
+    monday:
+      rounds: 5
+      steps:
+        - name: Countdown
+          type: break
+          seconds: 5
 
-    - type: break
-      seconds: 20
+        - name: Burpees
+          seconds: 40
 
-    - type: normal
-      name: Jump squat
-      seconds: 40
+        - type: break
+          seconds: 20
 
-    - type: break
-      seconds: 20
+        - type: normal
+          name: Jump squat
+          seconds: 40
 
-    - type: normal
-      name: Mountain climbers
-      seconds: 40
+        - type: break
+          seconds: 20
 
-    - type: break
-      seconds: 20
+        - type: normal
+          name: Mountain climbers
+          seconds: 40
 
-    - type: normal
-      name: Fast push-ups
-      seconds: 40
+        - type: break
+          seconds: 20
 
-    - type: break
-      seconds: 20
+        - type: normal
+          name: Fast push-ups
+          seconds: 40
 
-    - type: break
-      name: Cooldown
-      seconds: 60
+        - type: break
+          seconds: 20
 
-tuesday:
-  rounds: 5
-  steps:
-    - name: Countdown
-      type: break
-      seconds: 5
+        - type: break
+          name: Cooldown
+          seconds: 60
 
-    - name: Standing sprint
-      seconds: 30
+    tuesday:
+      rounds: 5
+      steps:
+        - name: Countdown
+          type: break
+          seconds: 5
 
-    - name: Lateral jump squat
-      seconds: 30
+        - name: Standing sprint
+          seconds: 30
 
-    - name: Skater jumps
-      seconds: 30
+        - name: Lateral jump squat
+          seconds: 30
 
-    - name: Standing walk
-      seconds: 30
+        - name: Skater jumps
+          seconds: 30
 
-    - name: Shadow boxing
-      seconds: 60
-      repeat: 3
-      cooldown: 30
+        - name: Standing walk
+          seconds: 30
 
-    - name: Dynamic plank
-      seconds: 120
+        - name: Shadow boxing
+          seconds: 60
+          repeat: 3
+          cooldown: 30
 
-thursday:
-  rounds: 8
-  steps:
-    - name: Countdown
-      type: break
-      seconds: 5
+        - name: Dynamic plank
+          seconds: 120
 
-    - name: Jump squats
-      seconds: 20
+    thursday:
+      rounds: 8
+      steps:
+        - name: Countdown
+          type: break
+          seconds: 5
 
-    - type: break
-      seconds: 10
+        - name: Jump squats
+          seconds: 20
 
-    - name: Explosive push ups
-      seconds: 20
+        - type: break
+          seconds: 10
 
-    - type: break
-      seconds: 10
+        - name: Explosive push ups
+          seconds: 20
 
-    - name: Mountain climbers
-      seconds: 20
+        - type: break
+          seconds: 10
 
-    - type: break
-      seconds: 10
+        - name: Mountain climbers
+          seconds: 20
 
-    - name: Jumping lunges
-      seconds: 20
+        - type: break
+          seconds: 10
 
-    - type: break
-      seconds: 10
+        - name: Jumping lunges
+          seconds: 20
 
-friday:
-  rounds: 3
-  steps:
-    - name: Countdown
-      type: break
-      seconds: 5
+        - type: break
+          seconds: 10
 
-    - name: Jumping jacks
-      seconds: 180
+    friday:
+      rounds: 3
+      steps:
+        - name: Countdown
+          type: break
+          seconds: 5
 
-    - name: Push ups
-      seconds: 60
+        - name: Jumping jacks
+          seconds: 180
 
-    - name: Squats
-      seconds: 60
+        - name: Push ups
+          seconds: 60
 
-    - name: Squats
-      seconds: 60
+        - name: Squats
+          seconds: 60
 
-    - name: Burpees
-      seconds: 60
+        - name: Squats
+          seconds: 60
 
-    - name: Plan
-      seconds: 60
+        - name: Burpees
+          seconds: 60
 
-    - type: break
-      name: Cooldown
-      seconds: 120
+        - name: Plan
+          seconds: 60
 
-
-
+        - type: break
+          name: Cooldown
+          seconds: 120
