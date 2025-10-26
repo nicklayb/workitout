@@ -11,6 +11,10 @@ const isDev = process.argv.includes('--watch');
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const distDir = 'dist';
 
+const DIST_FOLDER = path.join(__dirname, "dist")
+
+const distFolder = url => path.join(DIST_FOLDER, url)
+
 const tailwindPlugin = {
   name: 'tailwind-css-v4',
   setup(build) {
@@ -65,24 +69,23 @@ const buildConfig = {
 
 mkdirSync(distDir, { recursive: true });
 
-
 function startServer() {
   return http
     .createServer((req, res) => {
-      const indexFile = path.join(__dirname, "index.html")
-      const filePath = path.join(__dirname, req.url === "/" ? "/index.html" : req.url);
+      let filePath = distFolder(req.url === "/" ? "/index.html" : req.url);
 
-      if (existsSync(filePath)) {
-        res.writeHead(200);
-        res.end(readFileSync(filePath));
-      } else {
-        const index = readFileSync(indexFile);
-        res.writeHead(200, { "Content-Type": "text/html" });
-        res.end(index);
+      if (!existsSync(filePath)) {
+        filePath = distFolder("index.html")
+        res.setHeader("Content-Type", "text/html")
       }
+
+      console.info(`${req.method} ${req.url} -> ${filePath.replace(DIST_FOLDER, "")}`)
+
+      res.writeHead(200);
+      res.end(readFileSync(filePath));
     })
     .listen(3000, () => {
-      console.log("🚀 Serveur dispo sur http://localhost:3000");
+      console.log("🚀 Server running at http://localhost:3000");
     });
 }
 
@@ -95,5 +98,3 @@ if (isDev) {
   await esbuild.build(buildConfig);
   console.log('✅ Build complete!');
 }
-
-

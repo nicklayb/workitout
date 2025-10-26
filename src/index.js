@@ -7,6 +7,6 @@ const app = Elm.Main.init({
 });
 
 app.ports.playSound.subscribe(function(message) {
-  const audio = new Audio(`/dist/sounds/${message}.mp3`)
+  const audio = new Audio(`/sounds/${message}.mp3`)
   audio.play()
 });
