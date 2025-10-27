@@ -17,6 +17,9 @@ import Ziplist exposing (Position(..))
 port playSound : String -> Cmd msg
 
 
+port storeLastPlan : String -> Cmd msg
+
+
 type alias Model =
     { session : Session
     , planPath : Maybe String
@@ -25,38 +28,74 @@ type alias Model =
     , dayPlan : Maybe Plan.DaysMap
     , currentTimer : Timer
     , currentRound : Int
+    , lastPlan : Maybe String
     }
 
 
 type Msg
     = GotFile (Maybe File)
-    | PlanLoaded (Result String Plan)
+    | PlanLoaded { result : Result String Plan, storeLastPlan : Maybe String }
     | Start
     | Tick
 
 
 init : Maybe String -> Session -> ( Model, Cmd Msg )
 init maybePath session =
-    ( { session = session
-      , planPath = maybePath
-      , file = Nothing
-      , plan = Resource.init
-      , dayPlan = Nothing
-      , currentTimer = Timer.init 0
-      , currentRound = 0
-      }
-    , Cmd.none
-    )
+    let
+        model =
+            { session = session
+            , planPath = maybePath
+            , file = Nothing
+            , plan = Resource.init
+            , dayPlan = Nothing
+            , currentTimer = Timer.init 0
+            , currentRound = 0
+            , lastPlan = session.appConfig.lastPlan
+            }
+    in
+    ( model, initCommand model )
+
+
+initCommand : Model -> Cmd Msg
+initCommand model =
+    let
+        maybeDecodeLastPlan =
+            case ( model.planPath, model.lastPlan ) of
+                ( Nothing, Just string ) ->
+                    Cmd.Extra.send (PlanLoaded { result = Plan.decode string, storeLastPlan = Nothing })
+
+                _ ->
+                    Cmd.none
+    in
+    Cmd.batch [ maybeDecodeLastPlan ]
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         GotFile (Just file) ->
-            ( { model | file = Just file }, Task.perform PlanLoaded (File.toString file |> Task.map Plan.decode) )
+            let
+                decodeFile string =
+                    { result = Plan.decode string, storeLastPlan = Just string }
+            in
+            ( { model | file = Just file }, Task.perform PlanLoaded (File.toString file |> Task.map decodeFile) )
 
-        PlanLoaded (Ok plan) ->
-            ( { model | plan = Resource.loaded plan, dayPlan = Plan.daysMap Monday plan }, Cmd.none )
+        PlanLoaded planLoadedResult ->
+            case planLoadedResult.result of
+                Ok plan ->
+                    let
+                        storePlanCmd =
+                            case planLoadedResult.storeLastPlan of
+                                Just planString ->
+                                    storeLastPlan planString
+
+                                _ ->
+                                    Cmd.none
+                    in
+                    ( { model | plan = Resource.loaded plan, dayPlan = Plan.daysMap Monday plan }, storePlanCmd )
+
+                _ ->
+                    ( model, Cmd.none )
 
         Start ->
             let
@@ -239,15 +278,23 @@ viewPlan plan model =
 
 viewContent : Model -> Html Msg
 viewContent model =
-    case ( model.plan, model.planPath ) of
-        ( Resource.Loaded plan, _ ) ->
+    case ( model.plan, model.planPath, model.lastPlan ) of
+        ( Resource.Loaded plan, _, _ ) ->
             viewPlan plan model
 
-        ( _, Just path ) ->
+        ( _, Just path, _ ) ->
             div [] [ text path ]
 
-        ( _, Nothing ) ->
+        ( _, Nothing, Just string ) ->
+            viewLoading
+
+        ( _, Nothing, Nothing ) ->
             viewUploadPath model
+
+
+viewLoading : Html Msg
+viewLoading =
+    div [] [ text "Loading" ]
 
 
 viewUploadPath : Model -> Html Msg
