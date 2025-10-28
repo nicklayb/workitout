@@ -1,8 +1,10 @@
-module Session exposing (Session, appConfig, init, navKey, putSession, putUrl, url, urlChanged)
+module Session exposing (Session, appConfig, currentDay, init, navKey, putSession, putUrl, url, urlChanged)
 
 import AppConfig exposing (AppConfig)
 import Browser.Navigation as Nav
+import Resource exposing (Resource(..))
 import Route exposing (Route(..))
+import Time
 import Url exposing (Url)
 
 
@@ -10,6 +12,7 @@ type alias Session =
     { navKey : Nav.Key
     , url : Url
     , appConfig : AppConfig
+    , currentDay : Time.Weekday
     }
 
 
@@ -24,10 +27,40 @@ putSession session withSession =
 
 init : Nav.Key -> Url -> AppConfig -> Session
 init navKeyInput urlInput appConfigInput =
+    let
+        weekday =
+            case appConfigInput.weekday of
+                0 ->
+                    Time.Sun
+
+                1 ->
+                    Time.Mon
+
+                2 ->
+                    Time.Tue
+
+                3 ->
+                    Time.Wed
+
+                4 ->
+                    Time.Thu
+
+                5 ->
+                    Time.Fri
+
+                _ ->
+                    Time.Sat
+    in
     { navKey = navKeyInput
     , url = urlInput
     , appConfig = appConfigInput
+    , currentDay = weekday
     }
+
+
+currentDay : Session -> Time.Weekday
+currentDay session =
+    session.currentDay
 
 
 appConfig : Session -> AppConfig

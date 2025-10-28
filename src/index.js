@@ -6,7 +6,8 @@ const LAST_PLAN_KEY = "last_plan"
 const app = Elm.Main.init({
   node: document.getElementById('elmRoot'),
   flags: {
-    lastPlan: localStorage.getItem(LAST_PLAN_KEY)
+    lastPlan: localStorage.getItem(LAST_PLAN_KEY),
+    weekday: (new Date()).getDay()
   }
 });
 

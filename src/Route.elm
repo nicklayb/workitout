@@ -1,5 +1,6 @@
 module Route exposing (Route(..), fromUrl, routeToString, urlChanged)
 
+import Plan exposing (Plan)
 import Url exposing (Url)
 import Url.Builder as UrlBuilder
 import Url.Parser as Parser exposing ((</>), (<?>), Parser, oneOf, s)
@@ -8,14 +9,14 @@ import Url.Parser.Query as Query
 
 type Route
     = Home
-    | RunPlan (Maybe String)
+    | RunPlan (Maybe String) (Maybe Plan.Day)
 
 
 parser : Parser (Route -> a) a
 parser =
     oneOf
         [ Parser.map Home Parser.top
-        , Parser.map RunPlan (s "plans" </> s "run" <?> Query.string "path")
+        , Parser.map RunPlan (s "plans" </> s "run" <?> Query.string "path" <?> Query.enum "day" Plan.dayEnum)
         ]
 
 
@@ -32,15 +33,26 @@ routeToString page =
                 Home ->
                     ( [], [] )
 
-                RunPlan maybePath ->
+                RunPlan maybePath maybeDay ->
                     let
-                        queryParams =
+                        dayParam =
+                            case maybeDay of
+                                Just day ->
+                                    [ UrlBuilder.string "day" (Plan.dayToString day) ]
+
+                                _ ->
+                                    []
+
+                        pathParam =
                             case maybePath of
                                 Just path ->
                                     [ UrlBuilder.string "path" path ]
 
                                 _ ->
                                     []
+
+                        queryParams =
+                            dayParam ++ pathParam
                     in
                     ( [ "plans", "run" ], queryParams )
     in

@@ -1,6 +1,7 @@
-module Plan exposing (Day(..), DaysMap, Plan, Step, authorName, daysMap, daysMapNextStep, decode, isBreakStep, stepName, stepSeconds)
+module Plan exposing (Day(..), DaysMap, Plan, Step, authorName, dayEnum, dayFromString, dayFromTimeDay, dayToString, daysMap, daysMapNextStep, decode, isBreakStep, stepName, stepSeconds)
 
 import Dict exposing (Dict)
+import Time exposing (Weekday(..))
 import Yaml.Decode as YamlDecode exposing (Error(..))
 import Ziplist exposing (Ziplist)
 
@@ -13,6 +14,58 @@ type Day
     | Friday
     | Saturday
     | Sunday
+
+
+dayEnum : Dict String Day
+dayEnum =
+    Dict.fromList
+        [ ( "monday"
+          , Monday
+          )
+        , ( "tuesday"
+          , Tuesday
+          )
+        , ( "wednesday"
+          , Wednesday
+          )
+        , ( "thursday"
+          , Thursday
+          )
+        , ( "friday"
+          , Friday
+          )
+        , ( "saturday"
+          , Saturday
+          )
+        , ( "sunday"
+          , Sunday
+          )
+        ]
+
+
+dayToString : Day -> String
+dayToString day =
+    case day of
+        Monday ->
+            "monday"
+
+        Tuesday ->
+            "tuesday"
+
+        Wednesday ->
+            "wednesday"
+
+        Thursday ->
+            "thursday"
+
+        Friday ->
+            "friday"
+
+        Saturday ->
+            "saturday"
+
+        Sunday ->
+            "sunday"
 
 
 dayFromString : String -> Maybe Day
@@ -41,6 +94,31 @@ dayFromString string =
 
         _ ->
             Nothing
+
+
+dayFromTimeDay : Time.Weekday -> Day
+dayFromTimeDay weekday =
+    case weekday of
+        Sun ->
+            Sunday
+
+        Mon ->
+            Monday
+
+        Tue ->
+            Tuesday
+
+        Wed ->
+            Wednesday
+
+        Thu ->
+            Thursday
+
+        Fri ->
+            Friday
+
+        Sat ->
+            Saturday
 
 
 type alias Author =

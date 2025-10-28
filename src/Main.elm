@@ -108,8 +108,8 @@ changeRouteTo maybeRoute model =
             HomePage.init session
                 |> updateWith Home GotHomeMsg model
 
-        Just (Route.RunPlan maybeString) ->
-            RunPlanPage.init maybeString session
+        Just (Route.RunPlan maybeString maybeDay) ->
+            RunPlanPage.init maybeString maybeDay session
                 |> updateWith RunPlan GotRunPlanMsg model
 
         Nothing ->

@@ -1,7 +1,7 @@
-module Page exposing (Page(..), view)
+module Page exposing (Page(..), view, viewLoading)
 
 import Browser exposing (Document)
-import Html exposing (Html, div)
+import Html exposing (Html, div, text)
 import Session exposing (Session)
 
 
@@ -19,6 +19,11 @@ view _ page { title, content } =
         , viewFooter
         ]
     }
+
+
+viewLoading : Html msg
+viewLoading =
+    div [] [ text "Loading" ]
 
 
 viewFooter : Html msg

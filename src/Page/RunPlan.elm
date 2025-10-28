@@ -2,6 +2,7 @@ port module Page.RunPlan exposing (Model, Msg, init, toSession, update, view)
 
 import Cmd.Extra exposing (delay, send)
 import File exposing (File)
+import GitHub
 import Html exposing (Html, a, button, div, h2, h4, input, label, span, text)
 import Html.Attributes exposing (class, href, type_)
 import Html.Events exposing (on, onClick)
@@ -29,6 +30,7 @@ type alias Model =
     , currentTimer : Timer
     , currentRound : Int
     , lastPlan : Maybe String
+    , currentDay : Plan.Day
     }
 
 
@@ -38,11 +40,20 @@ type Msg
     | Start
     | Tick
     | ClosePlan
+    | FileFetched (GitHub.HttpResponse String)
 
 
-init : Maybe String -> Session -> ( Model, Cmd Msg )
-init maybePath session =
+init : Maybe String -> Maybe Plan.Day -> Session -> ( Model, Cmd Msg )
+init maybePath maybeDay session =
     let
+        currentDay =
+            case maybeDay of
+                Just day ->
+                    day
+
+                _ ->
+                    Plan.dayFromTimeDay session.currentDay
+
         model =
             { session = session
             , planPath = maybePath
@@ -52,6 +63,7 @@ init maybePath session =
             , currentTimer = Timer.init 0
             , currentRound = 0
             , lastPlan = session.appConfig.lastPlan
+            , currentDay = currentDay
             }
     in
     ( model, initCommand model )
@@ -64,6 +76,9 @@ initCommand model =
             case ( model.planPath, model.lastPlan ) of
                 ( Nothing, Just string ) ->
                     Cmd.Extra.send (PlanLoaded { result = Plan.decode string, storeLastPlan = Nothing })
+
+                ( Just planPath, _ ) ->
+                    GitHub.fetchContent FileFetched planPath
 
                 _ ->
                     Cmd.none
@@ -93,7 +108,7 @@ update msg model =
                                 _ ->
                                     Cmd.none
                     in
-                    ( { model | plan = Resource.loaded plan, dayPlan = Plan.daysMap Monday plan }, storePlanCmd )
+                    ( putLoadedPlan plan model, storePlanCmd )
 
                 _ ->
                     ( model, Cmd.none )
@@ -167,6 +182,18 @@ update msg model =
                         Maybe.map Plan.daysMapNextStep model.dayPlan
             in
             ( { model | currentTimer = timer, dayPlan = dayPlan }, Cmd.batch [ cmd, playSoundCmd ] )
+
+        FileFetched (Ok content) ->
+            let
+                newModel =
+                    case Debug.log "Plan" <| Plan.decode content of
+                        Ok plan ->
+                            putLoadedPlan plan model
+
+                        _ ->
+                            { model | plan = Resource.init }
+            in
+            ( newModel, Cmd.none )
 
         _ ->
             ( model, Cmd.none )
@@ -327,6 +354,11 @@ view model =
     { content = viewContent model
     , title = "Run Plan"
     }
+
+
+putLoadedPlan : Plan -> Model -> Model
+putLoadedPlan plan model =
+    { model | plan = Resource.loaded plan, dayPlan = Plan.daysMap model.currentDay plan }
 
 
 filesDecoder : Decoder (Maybe File)
