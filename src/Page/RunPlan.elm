@@ -186,7 +186,7 @@ update msg model =
         FileFetched (Ok content) ->
             let
                 newModel =
-                    case Debug.log "Plan" <| Plan.decode content of
+                    case Plan.decode content of
                         Ok plan ->
                             putLoadedPlan plan model
 
