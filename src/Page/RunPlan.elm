@@ -2,11 +2,11 @@ port module Page.RunPlan exposing (Model, Msg, init, toSession, update, view)
 
 import Cmd.Extra exposing (delay, send)
 import File exposing (File)
-import Html exposing (Html, a, button, div, h2, h4, input, span, text)
+import Html exposing (Html, a, button, div, h2, h4, input, label, span, text)
 import Html.Attributes exposing (class, href, type_)
 import Html.Events exposing (on, onClick)
 import Json.Decode exposing (Decoder)
-import Plan exposing (Day(..), Plan, Step)
+import Plan exposing (Day(..), Plan, Step, stepSeconds)
 import Resource exposing (Resource)
 import Session exposing (Session)
 import Task
@@ -17,7 +17,7 @@ import Ziplist exposing (Position(..))
 port playSound : String -> Cmd msg
 
 
-port storeLastPlan : String -> Cmd msg
+port storeLastPlan : Maybe String -> Cmd msg
 
 
 type alias Model =
@@ -37,6 +37,7 @@ type Msg
     | PlanLoaded { result : Result String Plan, storeLastPlan : Maybe String }
     | Start
     | Tick
+    | ClosePlan
 
 
 init : Maybe String -> Session -> ( Model, Cmd Msg )
@@ -87,7 +88,7 @@ update msg model =
                         storePlanCmd =
                             case planLoadedResult.storeLastPlan of
                                 Just planString ->
-                                    storeLastPlan planString
+                                    storeLastPlan (Just planString)
 
                                 _ ->
                                     Cmd.none
@@ -123,6 +124,9 @@ update msg model =
                         ]
             in
             ( { model | currentTimer = timer, currentRound = round }, cmd )
+
+        ClosePlan ->
+            ( { model | plan = Resource.init, lastPlan = Nothing }, storeLastPlan Nothing )
 
         Tick ->
             let
@@ -178,20 +182,26 @@ toSession { session } =
     session
 
 
-viewPlanHeader : Plan -> Model -> Html Msg
-viewPlanHeader plan model =
+viewPlanHeader : Plan -> Html Msg
+viewPlanHeader plan =
     let
+        name =
+            Plan.authorName "Unknown" plan.author
+
         viewAuthor author =
             case author.email of
                 Just email ->
-                    a [ class "text-pink-600", href ("mailto:" ++ email) ] [ text author.name ]
+                    a [ class "text-pink-600", href ("mailto:" ++ email) ] [ text name ]
 
                 Nothing ->
-                    text author.name
+                    text name
     in
-    div [ class "flex flex-col items-end pr-3" ]
-        [ h2 [ class "text-2xl" ] [ text plan.description ]
-        , h4 [ class "text-xs" ] [ viewAuthor plan.author ]
+    div [ class "flex justify-end items-center pr-3 pt-2" ]
+        [ div [ class "flex flex-col" ]
+            [ h2 [ class "text-2xl" ] [ text plan.description ]
+            , h4 [ class "text-xs text-right" ] [ viewAuthor plan.author ]
+            ]
+        , div [] [ button [ onClick ClosePlan, class "ml-2 rounded-full text-white w-14 h-14 bg-pink-500 hover:bg-pink-600 flex justify-center items-center cursor-pointer text-5xl" ] [ text "×" ] ]
         ]
 
 
@@ -215,7 +225,7 @@ viewSteps model =
                     Plan.isBreakStep step
 
                 defaultClasses =
-                    [ class "px-2 py-3 mb-2 rounded-md" ]
+                    [ class "px-2 py-3 mb-2 rounded-md flex justify-between" ]
 
                 otherClasses =
                     case ( isCurrent, isBreak ) of
@@ -231,7 +241,10 @@ viewSteps model =
                         ( False, False ) ->
                             [ class "bg-gray-100 text-gray-500" ]
             in
-            div (defaultClasses ++ otherClasses) [ text (Plan.stepName step) ]
+            div (defaultClasses ++ otherClasses)
+                [ span [] [ text (Plan.stepName step) ]
+                , span [] [ text (String.fromInt (Plan.stepSeconds step) ++ "s") ]
+                ]
     in
     case model.dayPlan of
         Just daysMap ->
@@ -252,7 +265,7 @@ viewCurrentStep model =
                 div [ class "text-6xl" ] [ text (String.fromInt (Timer.remaining model.currentTimer)) ]
 
             else
-                div [] [ button [ onClick Start, class "rounded-md bg-pink-600 text-white px-3 py-2" ] [ text "Start" ] ]
+                div [] [ button [ onClick Start, class "rounded-md bg-pink-500 hover:bg-pink-600 text-white px-3 py-2" ] [ text "Start" ] ]
     in
     case step of
         Just stepValue ->
@@ -270,7 +283,7 @@ viewPlan plan model =
     div [ class "flex h-full" ]
         [ div [ class "w-1/4 px-2" ] [ viewSteps model ]
         , div [ class "w-full" ]
-            [ viewPlanHeader plan model
+            [ viewPlanHeader plan
             , viewCurrentStep model
             ]
         ]
@@ -285,7 +298,7 @@ viewContent model =
         ( _, Just path, _ ) ->
             div [] [ text path ]
 
-        ( _, Nothing, Just string ) ->
+        ( _, Nothing, Just _ ) ->
             viewLoading
 
         ( _, Nothing, Nothing ) ->
@@ -299,8 +312,13 @@ viewLoading =
 
 viewUploadPath : Model -> Html Msg
 viewUploadPath model =
-    div []
-        [ input [ type_ "file", on "change" (Json.Decode.map GotFile filesDecoder) ] []
+    div [ class "flex justify-center items-center h-full flex-col" ]
+        [ div [ class "mb-3 text-2xl" ] [ text "Upload a plan" ]
+        , label []
+            [ div [ class "bg-pink-500 hover:bg-pink-600 px-5 py-2 rounded-md text-white" ] [ text "Upload" ]
+            , input [ type_ "file", on "change" (Json.Decode.map GotFile filesDecoder), class "hidden" ] []
+            ]
+        , div [ class "mt-2" ] [ a [ class "text-pink-500 cursor-pointer", href "/" ] [ text "Or return home to select a community provided plan" ] ]
         ]
 
 

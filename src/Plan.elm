@@ -1,4 +1,4 @@
-module Plan exposing (Day(..), DaysMap, Plan, Step, daysMap, daysMapNextStep, decode, isBreakStep, stepName, stepSeconds)
+module Plan exposing (Day(..), DaysMap, Plan, Step, authorName, daysMap, daysMapNextStep, decode, isBreakStep, stepName, stepSeconds)
 
 import Dict exposing (Dict)
 import Yaml.Decode as YamlDecode exposing (Error(..))
@@ -44,7 +44,8 @@ dayFromString string =
 
 
 type alias Author =
-    { name : String
+    { github : Maybe String
+    , name : Maybe String
     , email : Maybe String
     }
 
@@ -192,6 +193,26 @@ putWorkout day workout dailyPlanning =
             { dailyPlanning | sunday = workout }
 
 
+authorName : String -> Author -> String
+authorName fallback author =
+    case author.name of
+        Just name ->
+            name
+
+        _ ->
+            case author.github of
+                Just github ->
+                    github
+
+                _ ->
+                    case author.email of
+                        Just email ->
+                            email
+
+                        _ ->
+                            fallback
+
+
 convertDaysMap : Dict String DaysMap -> DailyPlanning
 convertDaysMap inputDict =
     let
@@ -210,8 +231,9 @@ decoder : YamlDecode.Decoder Plan
 decoder =
     let
         authorDecoder =
-            YamlDecode.map2 Author
-                (YamlDecode.field "name" YamlDecode.string)
+            YamlDecode.map3 Author
+                (YamlDecode.maybe (YamlDecode.field "github" YamlDecode.string))
+                (YamlDecode.maybe (YamlDecode.field "name" YamlDecode.string))
                 (YamlDecode.maybe (YamlDecode.field "email" YamlDecode.string))
 
         breakWorkoutDecoder =
