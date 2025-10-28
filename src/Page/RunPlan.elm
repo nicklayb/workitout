@@ -185,15 +185,15 @@ update msg model =
 
         FileFetched (Ok content) ->
             let
-                newModel =
+                ( newModel, cmd ) =
                     case Plan.decode content of
                         Ok plan ->
-                            putLoadedPlan plan model
+                            ( putLoadedPlan plan model, storeLastPlan (Just content) )
 
                         _ ->
-                            { model | plan = Resource.init }
+                            ( { model | plan = Resource.init }, Cmd.none )
             in
-            ( newModel, Cmd.none )
+            ( newModel, cmd )
 
         _ ->
             ( model, Cmd.none )
