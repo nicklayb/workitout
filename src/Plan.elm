@@ -1,4 +1,4 @@
-module Plan exposing (Day(..), DaysMap, Plan, Step, authorName, dayEnum, dayFromString, dayFromTimeDay, dayToString, daysMap, daysMapNextStep, decode, isBreakStep, stepName, stepSeconds)
+module Plan exposing (Day(..), DaysMap, Plan, Step, authorName, dayEnum, dayFromString, dayFromTimeDay, dayToString, daysMap, daysMapNextStep, decode, isBreakStep, stepName, stepSeconds, weekdayEquals, weekdays)
 
 import Dict exposing (Dict)
 import Time exposing (Weekday(..))
@@ -16,30 +16,65 @@ type Day
     | Sunday
 
 
+weekdays : Plan -> List ( Day, Bool )
+weekdays plan =
+    let
+        boolFromMaybe day =
+            case day of
+                Just _ ->
+                    True
+
+                Nothing ->
+                    False
+    in
+    [ ( Sunday, boolFromMaybe plan.planning.days.sunday )
+    , ( Monday, boolFromMaybe plan.planning.days.monday )
+    , ( Tuesday, boolFromMaybe plan.planning.days.tuesday )
+    , ( Wednesday, boolFromMaybe plan.planning.days.wednesday )
+    , ( Thursday, boolFromMaybe plan.planning.days.thursday )
+    , ( Friday, boolFromMaybe plan.planning.days.friday )
+    , ( Saturday, boolFromMaybe plan.planning.days.saturday )
+    ]
+
+
+weekdayEquals : Day -> Day -> Bool
+weekdayEquals left right =
+    case ( left, right ) of
+        ( Sunday, Sunday ) ->
+            True
+
+        ( Monday, Monday ) ->
+            True
+
+        ( Tuesday, Tuesday ) ->
+            True
+
+        ( Wednesday, Wednesday ) ->
+            True
+
+        ( Thursday, Thursday ) ->
+            True
+
+        ( Friday, Friday ) ->
+            True
+
+        ( Saturday, Saturday ) ->
+            True
+
+        _ ->
+            False
+
+
 dayEnum : Dict String Day
 dayEnum =
     Dict.fromList
-        [ ( "monday"
-          , Monday
-          )
-        , ( "tuesday"
-          , Tuesday
-          )
-        , ( "wednesday"
-          , Wednesday
-          )
-        , ( "thursday"
-          , Thursday
-          )
-        , ( "friday"
-          , Friday
-          )
-        , ( "saturday"
-          , Saturday
-          )
-        , ( "sunday"
-          , Sunday
-          )
+        [ ( "monday", Monday )
+        , ( "tuesday", Tuesday )
+        , ( "wednesday", Wednesday )
+        , ( "thursday", Thursday )
+        , ( "friday", Friday )
+        , ( "saturday", Saturday )
+        , ( "sunday", Sunday )
         ]
 
 

@@ -41,6 +41,7 @@ type Msg
     | Tick
     | ClosePlan
     | FileFetched (GitHub.HttpResponse String)
+    | ChangeDay Plan.Day
 
 
 init : Maybe String -> Maybe Plan.Day -> Session -> ( Model, Cmd Msg )
@@ -142,6 +143,9 @@ update msg model =
 
         ClosePlan ->
             ( { model | plan = Resource.init, lastPlan = Nothing }, storeLastPlan Nothing )
+
+        ChangeDay day ->
+            ( setCurrentDayPlay { model | currentDay = day }, Cmd.none )
 
         Tick ->
             let
@@ -278,7 +282,7 @@ viewSteps model =
             div [] (viewRoundCounter :: Ziplist.map viewStep daysMap.steps)
 
         Nothing ->
-            div [] [ text "Nothing planned for today" ]
+            div [ class "text-center mt-6 text-gray-600" ] [ text ("Nothing planned for " ++ Plan.dayToString model.currentDay) ]
 
 
 viewCurrentStep : Model -> Html Msg
@@ -305,10 +309,33 @@ viewCurrentStep model =
             div [] []
 
 
+viewWeek : Plan -> Model -> Html Msg
+viewWeek plan model =
+    let
+        viewWeekday ( weekday, hasWorkout ) =
+            let
+                defaultClasses =
+                    "px-1 py-0.5 rounded-md text-pink-500 hover:bg-pink-200 min-w-10 text-center cursor-pointer"
+
+                activeClasses =
+                    if Plan.weekdayEquals weekday model.currentDay then
+                        "bg-pink-500 text-white shadow-md"
+
+                    else
+                        ""
+            in
+            div [ class (defaultClasses ++ " " ++ activeClasses), onClick (ChangeDay weekday) ] [ text (String.slice 0 3 (Plan.dayToString weekday)) ]
+    in
+    div [ class "flex justify-evenly mt-4" ] (List.map viewWeekday (Plan.weekdays plan))
+
+
 viewPlan : Plan -> Model -> Html Msg
 viewPlan plan model =
     div [ class "flex h-full" ]
-        [ div [ class "w-1/4 px-2" ] [ viewSteps model ]
+        [ div [ class "w-1/4 px-2" ]
+            [ viewWeek plan model
+            , viewSteps model
+            ]
         , div [ class "w-full" ]
             [ viewPlanHeader plan
             , viewCurrentStep model
@@ -358,7 +385,17 @@ view model =
 
 putLoadedPlan : Plan -> Model -> Model
 putLoadedPlan plan model =
-    { model | plan = Resource.loaded plan, dayPlan = Plan.daysMap model.currentDay plan }
+    setCurrentDayPlay { model | plan = Resource.loaded plan }
+
+
+setCurrentDayPlay : Model -> Model
+setCurrentDayPlay model =
+    case model.plan of
+        Resource.Loaded plan ->
+            { model | dayPlan = Plan.daysMap model.currentDay plan }
+
+        _ ->
+            model
 
 
 filesDecoder : Decoder (Maybe File)
