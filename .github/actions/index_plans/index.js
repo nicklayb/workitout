@@ -68,8 +68,6 @@ async function run() {
     index = putAtPath(index, plan.path, planMetadata)
   }
 
-  console.log(JSON.stringify(index))
-
   fs.writeFileSync("./index.json", JSON.stringify(index))
 }
 
