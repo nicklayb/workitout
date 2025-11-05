@@ -5,7 +5,7 @@ permissions:
 
 on:
   push:
-    branches: ["*"]
+    branches: ["plans"]
 
 jobs:
   build:
