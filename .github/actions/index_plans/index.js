@@ -61,13 +61,16 @@ async function buildPlanMetadata(plan) {
 async function run() {
   const plans = await listPlans()
 
-  const index = plans.reduce((acc, plan) => {
-    const planMetadata = buildPlanMetadata(plan)
-    return putAtPath(acc, plan.path, planMetadata)
-  }, {})
+  let index= {}
+
+  for (const plan of plans) {
+    const planMetadata = await buildPlanMetadata(plan)
+    index = putAtPath(index, plan.path, planMetadata)
+  }
+
+  console.log(JSON.stringify(index))
 
   fs.writeFileSync("./index.json", JSON.stringify(index))
-  fs.readdir("./", (err, files) => console.log({ err, files }))
 }
 
 run()
