@@ -1,0 +1,11 @@
+name: 'Index plans'
+description: 'Index plans into a single JSON file'
+inputs:
+  token:
+    description: "GitHub Token"
+outputs:
+  version:
+    description: 'Version of the repo'
+runs:
+  using: 'node20'
+  main: 'dist/index.js'

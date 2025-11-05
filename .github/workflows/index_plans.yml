@@ -1,9 +1,7 @@
 name: Index plan files
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
 on:
   push:
@@ -14,9 +12,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Setup Node
-        uses: actions/setup-node@v3
+
+      - name: Index YAML plans into a single json
+        uses: ./.github/actions/index_plans
         with:
-          node-version: '20.x'
-      - run: node build_plan_index.js
+          token: ${{ secrets.GITHUB_TOKEN }}
+        id: index_plans
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: plan_index
+          path: 'index.json'
+          overwrite: true
 
