@@ -19,10 +19,14 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
         id: index_plans
 
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
+      - name: Commit files
+        run: |
+          git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git commit -a -m "Sync index json"
+      - name: Push changes
+        uses: ad-m/github-push-action@master
         with:
-          name: plan_index
-          path: 'index.json'
-          overwrite: true
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          branch: plans
 
