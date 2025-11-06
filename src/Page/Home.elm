@@ -55,7 +55,7 @@ viewPlans title (Folder plans) model =
             Dict.foldl viewFile []
 
         viewFile _ file acc =
-            a [ href <| Route.routeToString (Route.RunPlan (Just "") Nothing) ] [ text file.description ] :: acc
+            a [ href <| Route.routeToString (Route.RunPlan (Just file.path) Nothing) ] [ text file.description ] :: acc
 
         viewFolders =
             Dict.foldl viewFolder []
