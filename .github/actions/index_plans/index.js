@@ -12,6 +12,7 @@ const BRANCH = "plans"
 
 let octokitSingleton = null
 
+const EMPTY_FOLDER = { files: {}, folders: {} }
 function getOctokitSingleton() {
   if (octokitSingleton) {
     return octokitSingleton;
@@ -36,13 +37,16 @@ function putAtPath(tree, path, item) {
   if (path.constructor == String) {
     return putAtPath(tree, path.replace(/^plans\//, "").split("/"), item)
   }
-
-  if (path.length == 1) {
-    return { ...tree, [path[0]]: item }
-  }
-  const [parent, ...rest] = path
   
-  return {...tree, [parent]: putAtPath(tree[parent] || {}, rest, item)}
+  if (path.length == 1) {
+    const key = path[0];
+    const files = {...tree.files, [key]: item}
+    return {...tree, files}
+  }
+
+  const [parent, ...rest] = path
+  const folders =  {...tree.folders, [parent]: putAtPath(tree.folders[parent] || EMPTY_FOLDER, rest, item)}
+  return {...tree, folders}
 }
 
 async function buildPlanMetadata(plan) {
@@ -61,11 +65,13 @@ async function buildPlanMetadata(plan) {
 async function run() {
   const plans = await listPlans()
 
-  let index= {}
+  let index = EMPTY_FOLDER
 
   for (const plan of plans) {
-    const planMetadata = await buildPlanMetadata(plan)
-    index = putAtPath(index, plan.path, planMetadata)
+    if (plan.type != "dir") {
+      const planMetadata = await buildPlanMetadata(plan)
+      index = putAtPath(index, plan.path, planMetadata)
+    }
   }
 
   fs.writeFileSync("./index.json", JSON.stringify(index))
