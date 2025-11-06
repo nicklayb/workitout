@@ -22,7 +22,6 @@
             pkgs.elmPackages.elm-optimize-level-2
             pkgs.elmPackages.elm-test
             pkgs.elmPackages.elm-language-server
-            # pkgs.esbuild
             pkgs.tailwindcss_4
             pkgs.nodejs_20
             pkgs.nodePackages.terser
