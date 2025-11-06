@@ -1,4 +1,4 @@
-module Tree exposing (Folder, decoder)
+module Tree exposing (Folder(..), decoder)
 
 import Dict exposing (Dict)
 import Json.Decode exposing (..)

@@ -1,21 +1,21 @@
 module Page.Home exposing (Model, Msg, init, toSession, update, view)
 
+import Dict
 import GitHub
-import Html exposing (Html, button, div, span, text)
-import Html.Attributes exposing (class)
+import Html exposing (Html, a, dd, div, dl, dt, h1, span, text)
+import Html.Attributes exposing (class, href)
 import Html.Events exposing (onClick)
 import Json.Decode
 import Plan exposing (Plan)
 import RemotePlan exposing (RemotePlan)
 import Resource exposing (Resource(..))
+import Route exposing (Route)
 import Session exposing (Session)
-import Tree exposing (Folder)
-import Ziplist exposing (Ziplist(..))
+import Tree exposing (Folder(..))
 
 
 type alias Model =
     { session : Session
-    , items : Ziplist String
     , indexedPlans : Resource (Folder RemotePlan)
     }
 
@@ -24,15 +24,10 @@ type Msg
     = IndexFetched (GitHub.HttpResponse (Folder RemotePlan))
 
 
-inputStr =
-    "{\"files\":{\"example.yml\":{\"description\":\"ChatGPT generated plan\",\"author_name\":\"Nicolas Boisvert\",\"download_url\":\"https://raw.githubusercontent.com/nicklayb/workitout/plans/plans/example.yml\",\"sha\":\"7798b70a5ac215144491baf00f95a5139f2590a9\"}},\"folders\":{}}"
-
-
 init : Session -> ( Model, Cmd Msg )
 init session =
     ( { session = session
-      , items = Ziplist.init [ "a", "b", "c", "d", "e" ]
-      , indexedPlans = NotLoaded
+      , indexedPlans = Loading Nothing
       }
     , GitHub.fetchIndex IndexFetched
     )
@@ -53,32 +48,44 @@ toSession { session } =
     session
 
 
-viewItems : Model -> Html Msg
-viewItems model =
-    case model.items of
-        Empty ->
-            text "empty"
+viewPlans : String -> Folder RemotePlan -> Model -> Html Msg
+viewPlans title (Folder plans) model =
+    let
+        viewFiles =
+            Dict.foldl viewFile []
 
-        Ziplist back current front ->
-            let
-                viewItem isCurrent item =
-                    let
-                        itemClasses =
-                            if isCurrent then
-                                [ class "text-pink-500" ]
+        viewFile _ file acc =
+            a [ href <| Route.routeToString (Route.RunPlan (Just "") Nothing) ] [ text file.description ] :: acc
 
-                            else
-                                []
-                    in
-                    div itemClasses [ text item ]
-            in
-            div [] (List.map (viewItem False) (List.reverse back) ++ viewItem True current :: List.map (viewItem False) front)
+        viewFolders =
+            Dict.foldl viewFolder []
+
+        viewFolder key folder acc =
+            viewPlans key folder model :: acc
+    in
+    dl []
+        [ dt [] [ text title ]
+        , dd [ class "pl-4" ]
+            (viewFiles plans.files
+                ++ viewFolders plans.folders
+            )
+        ]
 
 
 viewContent : Model -> Html Msg
 viewContent model =
+    let
+        innerContent =
+            case model.indexedPlans of
+                Loaded plans ->
+                    viewPlans "/" plans model
+
+                _ ->
+                    div [] [ text "Loading..." ]
+    in
     div []
-        [ viewItems model
+        [ h1 [ class "text-center text-pink-500 text-4xl py-4" ] [ text "Workitout" ]
+        , div [ class "flex justify-center" ] [ innerContent ]
         ]
 
 

@@ -40,7 +40,15 @@ fetchIndex msg =
     let
         decoder =
             contentDecoder
-                |> JsonDecode.andThen (\decoded -> JsonDecode.map (Tree.decoder RemotePlan.decoder) decoded)
+                |> JsonDecode.andThen
+                    (\decoded ->
+                        case JsonDecode.decodeString (Tree.decoder RemotePlan.decoder) decoded of
+                            Ok result ->
+                                JsonDecode.succeed result
+
+                            Err error ->
+                                JsonDecode.fail (JsonDecode.errorToString error)
+                    )
     in
     Http.get
         { url = "https://api.github.com/repos/nicklayb/workitout/contents/index.json?ref=plans"
