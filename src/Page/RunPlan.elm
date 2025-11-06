@@ -199,6 +199,9 @@ update msg model =
             in
             ( newModel, cmd )
 
+        FileFetched (Err _) ->
+            ( { model | plan = Resource.fail "Could not download file" }, Cmd.none )
+
         _ ->
             ( model, Cmd.none )
 
@@ -349,13 +352,16 @@ viewContent model =
         ( Resource.Loaded plan, _, _ ) ->
             viewPlan plan model
 
-        ( _, Just path, _ ) ->
-            div [] [ text path ]
+        ( Resource.Failed error, _, _ ) ->
+            div []
+                [ div [ class "text-center text-red-500 py-6 bg-red-200" ] [ text error ]
+                , viewUploadPath model
+                ]
 
         ( _, Nothing, Just _ ) ->
             viewLoading
 
-        ( _, Nothing, Nothing ) ->
+        ( _, _, _ ) ->
             viewUploadPath model
 
 

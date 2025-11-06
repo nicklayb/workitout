@@ -1,10 +1,11 @@
-module Resource exposing (Resource(..), init, loaded, loading, value)
+module Resource exposing (Resource(..), fail, init, loaded, loading, value)
 
 
 type Resource a
     = NotLoaded
     | Loading (Maybe a)
     | Loaded a
+    | Failed String
 
 
 init : Resource a
@@ -25,6 +26,11 @@ loading resource =
 loaded : a -> Resource a
 loaded valueInput =
     Loaded valueInput
+
+
+fail : String -> Resource a
+fail error =
+    Failed error
 
 
 value : Resource a -> Maybe a
