@@ -48102,6 +48102,8 @@ async function buildPlanMetadata(plan) {
     description: yaml.description,
     author_name: yaml.author.name || yaml.author.email || yaml.author.github,
     download_url: plan.download_url,
+    path: plan.path,
+    name: plan.name,
     sha: plan.sha
   }
 }
