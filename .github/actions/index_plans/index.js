@@ -4,6 +4,8 @@ import { readFile } from 'node:fs/promises'
 import * as YAML from 'yaml'
 import fetch from 'node-fetch'
 import fs from 'fs'
+import fsPromise from 'node:fs/promises';
+import nodePath from 'node:path';
 
 const OWNER = 'nicklayb'
 const REPO = 'workitout'
@@ -13,24 +15,39 @@ const BRANCH = "plans"
 let octokitSingleton = null
 
 const EMPTY_FOLDER = { files: {}, folders: {} }
-function getOctokitSingleton() {
-  if (octokitSingleton) {
-    return octokitSingleton;
-  }
-  const githubToken = core.getInput('token');
-  octokitSingleton = getOctokit(githubToken);
-  return octokitSingleton;
+// function getOctokitSingleton() {
+//   if (octokitSingleton) {
+//     return octokitSingleton;
+//   }
+//   // const githubToken = core.getInput('token');
+//   octokitSingleton = getOctokit();
+//   return octokitSingleton;
+// }
+
+// async function listPlans() {
+//   const response = await getOctokitSingleton().rest.repos.getContent({
+//     owner: OWNER,
+//     repo: REPO,
+//     path: PLANS_PATH,
+//     ref: BRANCH
+//   })
+//
+//   return response.data
+// }
+
+const ROOT = "./plans"
+
+const buildPath = filepath => nodePath.join(ROOT, filepath)
+
+const isDirectory = path => {
+  return fs.lstatSync(buildPath(path)).isDirectory() 
 }
 
 async function listPlans() {
-  const response = await getOctokitSingleton().rest.repos.getContent({
-    owner: OWNER,
-    repo: REPO,
-    path: PLANS_PATH,
-    ref: BRANCH
-  })
+  const content = await fsPromise.readdir(ROOT, { recursive: true })
+  console.log(content)
 
-  return response.data
+  return content
 }
 
 function putAtPath(tree, path, item) {
@@ -50,17 +67,19 @@ function putAtPath(tree, path, item) {
 }
 
 async function buildPlanMetadata(plan) {
-  const response = await fetch(plan.download_url)
-  const text = await response.text()
+  // const response = await fetch(plan.download_url)
+  // const text = await response.text()
+  const filepath = buildPath(plan)
+  const text = await fsPromise.readFile(filepath, { encoding: "utf8" })
   const yaml = YAML.parse(text)
 
   return {
     description: yaml.description,
     author_name: yaml.author.name || yaml.author.email || yaml.author.github,
-    download_url: plan.download_url,
-    path: plan.path.replace(/^plans\//, ""),
-    name: plan.name,
-    sha: plan.sha
+    download_url: "",
+    path: plan.replace(/^plans\//, ""),
+    name: nodePath.basename(plan),
+    sha: ""
   }
 }
 
@@ -70,9 +89,9 @@ async function run() {
   let index = EMPTY_FOLDER
 
   for (const plan of plans) {
-    if (plan.type != "dir") {
+    if (!isDirectory(plan)) {
       const planMetadata = await buildPlanMetadata(plan)
-      index = putAtPath(index, plan.path, planMetadata)
+      index = putAtPath(index, plan, planMetadata)
     }
   }
 
