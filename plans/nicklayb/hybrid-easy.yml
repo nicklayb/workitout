@@ -1,0 +1,126 @@
+description: Hybride facile
+author:
+  github: nicklayb
+  name: Nicolas Boisvert
+  email: nicklay@me.com
+
+planning:
+  days:
+    monday:
+      rounds: 3
+      steps:
+        - name: Countdown
+          type: break
+          seconds: 5
+
+        - name: Bodyweight squats
+          seconds: 45
+
+        - type: break
+          seconds: 30
+
+        - name: Push ups
+          seconds: 30
+
+        - type: break
+          seconds: 30
+
+        - name: March in place
+          seconds: 60
+
+        - type: break
+          seconds: 30
+
+        - name: Glute bridges
+          seconds: 45
+
+        - type: break
+          seconds: 30
+
+    tuesday:
+      rounds: 3
+      steps:
+        - name: Countdown
+          type: break
+          seconds: 5
+
+        - name: Reverse lunges
+          seconds: 40
+
+        - type: break
+          seconds: 30
+
+        - name: Shadow boxing
+          seconds: 60
+
+        - type: break
+          seconds: 30
+
+        - name: Incline push ups
+          seconds: 40
+
+        - type: break
+          seconds: 30
+
+        - name: Step jacks
+          seconds: 60
+
+        - type: break
+          seconds: 30
+
+    thursday:
+      rounds: 3
+      steps:
+        - name: Countdown
+          type: break
+          seconds: 5
+
+        - name: Squats
+          seconds: 45
+
+        - type: break
+          seconds: 30
+
+        - name: Standing knee raises
+          seconds: 60
+
+        - type: break
+          seconds: 30
+
+        - name: Push ups
+          seconds: 30
+
+        - type: break
+          seconds: 30
+
+        - name: Shadow boxing
+          seconds: 60
+
+        - type: break
+          seconds: 30
+
+    friday:
+      rounds: 2
+      steps:
+        - name: Countdown
+          type: break
+          seconds: 5
+
+        - name: Squats
+          seconds: 60
+
+        - name: Push ups
+          seconds: 45
+
+        - name: March in place
+          seconds: 90
+
+        - name: Reverse lunges
+          seconds: 60
+
+        - name: Shadow boxing
+          seconds: 90
+
+        - type: break
+          name: Cooldown
+          seconds: 120

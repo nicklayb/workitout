@@ -1,0 +1,126 @@
+description: Cardio moyen
+author:
+  github: nicklayb
+  name: Nicolas Boisvert
+  email: nicklay@me.com
+
+planning:
+  days:
+    monday:
+      rounds: 4
+      steps:
+        - name: Countdown
+          type: break
+          seconds: 5
+
+        - name: Jumping jacks
+          seconds: 40
+
+        - type: break
+          seconds: 20
+
+        - name: Mountain climbers
+          seconds: 40
+
+        - type: break
+          seconds: 20
+
+        - name: High knees
+          seconds: 40
+
+        - type: break
+          seconds: 20
+
+        - name: Burpees
+          seconds: 30
+
+        - type: break
+          seconds: 30
+
+    tuesday:
+      rounds: 3
+      steps:
+        - name: Countdown
+          type: break
+          seconds: 5
+
+        - name: Jump squats
+          seconds: 40
+
+        - type: break
+          seconds: 20
+
+        - name: Skater jumps
+          seconds: 40
+
+        - type: break
+          seconds: 20
+
+        - name: Push ups
+          seconds: 40
+
+        - type: break
+          seconds: 20
+
+        - name: Mountain climbers
+          seconds: 40
+
+        - type: break
+          seconds: 30
+
+    thursday:
+      rounds: 5
+      steps:
+        - name: Countdown
+          type: break
+          seconds: 5
+
+        - name: High knees
+          seconds: 30
+
+        - type: break
+          seconds: 15
+
+        - name: Burpees
+          seconds: 30
+
+        - type: break
+          seconds: 15
+
+        - name: Shadow boxing
+          seconds: 45
+
+        - type: break
+          seconds: 15
+
+        - name: Skater jumps
+          seconds: 30
+
+        - type: break
+          seconds: 30
+
+    friday:
+      rounds: 3
+      steps:
+        - name: Countdown
+          type: break
+          seconds: 5
+
+        - name: Jumping jacks
+          seconds: 60
+
+        - name: Mountain climbers
+          seconds: 60
+
+        - name: High knees
+          seconds: 60
+
+        - name: Shadow boxing
+          seconds: 60
+
+        - type: break
+          seconds: 45
+
+        - type: break
+          name: Cooldown
+          seconds: 120
