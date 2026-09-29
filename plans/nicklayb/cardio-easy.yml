@@ -1,0 +1,123 @@
+description: Cardio facile
+author:
+  github: nicklayb
+  name: Nicolas Boisvert
+  email: nicklay@me.com
+
+planning:
+  days:
+    monday:
+      rounds: 3
+      steps:
+        - name: Countdown
+          type: break
+          seconds: 5
+
+        - name: March in place
+          seconds: 60
+
+        - type: break
+          seconds: 30
+
+        - name: Step jacks
+          seconds: 45
+
+        - type: break
+          seconds: 30
+
+        - name: Standing knee raises
+          seconds: 45
+
+        - type: break
+          seconds: 30
+
+        - name: Shadow boxing
+          seconds: 60
+
+        - type: break
+          seconds: 30
+
+    tuesday:
+      rounds: 3
+      steps:
+        - name: Countdown
+          type: break
+          seconds: 5
+
+        - name: Bodyweight squats
+          seconds: 45
+
+        - type: break
+          seconds: 30
+
+        - name: Low impact mountain climbers
+          seconds: 45
+
+        - type: break
+          seconds: 30
+
+        - name: Alternating reverse lunges
+          seconds: 45
+
+        - type: break
+          seconds: 30
+
+        - name: Standing punches
+          seconds: 60
+
+        - type: break
+          seconds: 30
+
+    thursday:
+      rounds: 4
+      steps:
+        - name: Countdown
+          type: break
+          seconds: 5
+
+        - name: Fast march
+          seconds: 60
+
+        - type: break
+          seconds: 20
+
+        - name: Step ups
+          seconds: 60
+
+        - type: break
+          seconds: 20
+
+        - name: Shadow boxing
+          seconds: 60
+
+        - type: break
+          seconds: 20
+
+        - name: Standing knee drives
+          seconds: 60
+
+        - type: break
+          seconds: 30
+
+    friday:
+      rounds: 2
+      steps:
+        - name: Countdown
+          type: break
+          seconds: 5
+
+        - name: March in place
+          seconds: 120
+
+        - name: Shadow boxing
+          seconds: 120
+
+        - name: Step jacks
+          seconds: 120
+
+        - name: Standing knee raises
+          seconds: 120
+
+        - type: break
+          name: Cooldown
+          seconds: 120

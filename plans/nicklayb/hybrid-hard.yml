@@ -1,0 +1,138 @@
+description: Hybride difficile
+author:
+  github: nicklayb
+  name: Nicolas Boisvert
+  email: nicklay@me.com
+
+planning:
+  days:
+    monday:
+      rounds: 5
+      steps:
+        - name: Countdown
+          type: break
+          seconds: 5
+
+        - name: Burpees
+          seconds: 30
+
+        - type: break
+          seconds: 15
+
+        - name: Jump squats
+          seconds: 30
+
+        - type: break
+          seconds: 15
+
+        - name: Push ups
+          seconds: 40
+
+        - type: break
+          seconds: 15
+
+        - name: Mountain climbers
+          seconds: 40
+
+        - type: break
+          seconds: 30
+
+    tuesday:
+      rounds: 4
+      steps:
+        - name: Countdown
+          type: break
+          seconds: 5
+
+        - name: Bulgarian split squat
+          seconds: 40
+
+        - type: break
+          seconds: 20
+
+        - name: Explosive push ups
+          seconds: 30
+
+        - type: break
+          seconds: 20
+
+        - name: Jumping lunges
+          seconds: 40
+
+        - type: break
+          seconds: 20
+
+        - name: Pike push ups
+          seconds: 30
+
+        - type: break
+          seconds: 20
+
+        - name: Hollow body hold
+          seconds: 40
+
+        - type: break
+          seconds: 30
+
+    thursday:
+      rounds: 6
+      steps:
+        - name: Countdown
+          type: break
+          seconds: 5
+
+        - name: High knees
+          seconds: 30
+
+        - type: break
+          seconds: 15
+
+        - name: Burpees
+          seconds: 30
+
+        - type: break
+          seconds: 15
+
+        - name: Skater jumps
+          seconds: 30
+
+        - type: break
+          seconds: 15
+
+        - name: Mountain climbers
+          seconds: 30
+
+        - type: break
+          seconds: 30
+
+    friday:
+      rounds: 4
+      steps:
+        - name: Countdown
+          type: break
+          seconds: 5
+
+        - name: Jump squats
+          seconds: 40
+
+        - name: Push ups
+          seconds: 40
+
+        - name: Burpees
+          seconds: 30
+
+        - name: Walking lunges
+          seconds: 40
+
+        - name: Mountain climbers
+          seconds: 40
+
+        - name: Plank
+          seconds: 45
+
+        - type: break
+          seconds: 45
+
+        - type: break
+          name: Cooldown
+          seconds: 120

@@ -1,0 +1,132 @@
+description: Force moyen
+author:
+  github: nicklayb
+  name: Nicolas Boisvert
+  email: nicklay@me.com
+
+planning:
+  days:
+    monday:
+      rounds: 4
+      steps:
+        - name: Countdown
+          type: break
+          seconds: 5
+
+        - name: Tempo squats
+          seconds: 45
+
+        - type: break
+          seconds: 30
+
+        - name: Push ups
+          seconds: 40
+
+        - type: break
+          seconds: 30
+
+        - name: Reverse lunges
+          seconds: 45
+
+        - type: break
+          seconds: 30
+
+        - name: Plank
+          seconds: 45
+
+        - type: break
+          seconds: 45
+
+    tuesday:
+      rounds: 3
+      steps:
+        - name: Countdown
+          type: break
+          seconds: 5
+
+        - name: Bulgarian split squat
+          seconds: 40
+
+        - type: break
+          seconds: 30
+
+        - name: Diamond push ups
+          seconds: 30
+
+        - type: break
+          seconds: 30
+
+        - name: Single leg glute bridge
+          seconds: 40
+
+        - type: break
+          seconds: 30
+
+        - name: Pike push ups
+          seconds: 30
+
+        - type: break
+          seconds: 30
+
+        - name: Hollow body hold
+          seconds: 30
+
+        - type: break
+          seconds: 45
+
+    thursday:
+      rounds: 4
+      steps:
+        - name: Countdown
+          type: break
+          seconds: 5
+
+        - name: Jump squats
+          seconds: 30
+
+        - type: break
+          seconds: 30
+
+        - name: Push ups
+          seconds: 40
+
+        - type: break
+          seconds: 30
+
+        - name: Walking lunges
+          seconds: 45
+
+        - type: break
+          seconds: 30
+
+        - name: Plank shoulder taps
+          seconds: 40
+
+        - type: break
+          seconds: 45
+
+    friday:
+      rounds: 3
+      steps:
+        - name: Countdown
+          type: break
+          seconds: 5
+
+        - name: Squats
+          seconds: 60
+
+        - name: Push ups
+          seconds: 45
+
+        - name: Lunges
+          seconds: 60
+
+        - name: Pike push ups
+          seconds: 45
+
+        - name: Plank
+          seconds: 60
+
+        - type: break
+          name: Cooldown
+          seconds: 120
