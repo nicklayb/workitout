@@ -1,5 +1,4 @@
 import * as core from '@actions/core'
-import { context, getOctokit } from '@actions/github'
 import { readFile } from 'node:fs/promises'
 import * as YAML from 'yaml'
 import fetch from 'node-fetch'
@@ -15,25 +14,6 @@ const BRANCH = "plans"
 let octokitSingleton = null
 
 const EMPTY_FOLDER = { files: {}, folders: {} }
-// function getOctokitSingleton() {
-//   if (octokitSingleton) {
-//     return octokitSingleton;
-//   }
-//   // const githubToken = core.getInput('token');
-//   octokitSingleton = getOctokit();
-//   return octokitSingleton;
-// }
-
-// async function listPlans() {
-//   const response = await getOctokitSingleton().rest.repos.getContent({
-//     owner: OWNER,
-//     repo: REPO,
-//     path: PLANS_PATH,
-//     ref: BRANCH
-//   })
-//
-//   return response.data
-// }
 
 const ROOT = "./plans"
 
@@ -67,8 +47,6 @@ function putAtPath(tree, path, item) {
 }
 
 async function buildPlanMetadata(plan) {
-  // const response = await fetch(plan.download_url)
-  // const text = await response.text()
   const filepath = buildPath(plan)
   const text = await fsPromise.readFile(filepath, { encoding: "utf8" })
   const yaml = YAML.parse(text)
