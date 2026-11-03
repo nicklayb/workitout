@@ -18,8 +18,8 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: '20.x'
+      # elm and elm-test are pinned as devDependencies in package.json.
       - run: npm ci
-      - run: npm i -g elm elm-test
       - run: npm test
       - run: npm run build
 

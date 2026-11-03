@@ -13,6 +13,9 @@ const distDir = 'dist';
 
 const DIST_FOLDER = path.join(__dirname, "dist")
 
+// Use the compiler pinned in package.json rather than whatever `elm` is on PATH.
+const ELM_COMPILER_PATH = path.join(__dirname, "node_modules", ".bin", "elm")
+
 const distFolder = url => path.join(DIST_FOLDER, url)
 
 const tailwindPlugin = {
@@ -52,7 +55,7 @@ const buildConfig = {
     ElmPlugin({
       debug: isDev,
       optimize: !isDev,
-      pathToElm: 'elm'
+      pathToElm: ELM_COMPILER_PATH
     }),
     tailwindPlugin
   ],
