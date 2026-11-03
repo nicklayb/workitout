@@ -13,8 +13,8 @@
   "type": "module",
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.16",
-    "elm": "0.19.3-0",
-    "elm-test": "0.19.3-0",
+    "elm": "0.19.2-0",
+    "elm-test": "0.19.2-1",
     "esbuild": "^0.25.11",
     "esbuild-plugin-elm": "^0.0.12",
     "esbuild-postcss": "^0.0.4",

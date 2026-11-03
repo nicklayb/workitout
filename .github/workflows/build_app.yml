@@ -18,8 +18,15 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: '20.x'
-      # elm and elm-test are pinned as devDependencies in package.json.
+      # elm and elm-test are pinned as exact devDependencies in package.json.
       - run: npm ci
+      - name: Check Elm version
+        env:
+          EXPECTED_ELM_VERSION: '0.19.2'
+        run: |
+          actual_elm_version="$(npx --no-install elm --version)"
+          echo "elm ${actual_elm_version}"
+          test "${actual_elm_version}" = "${EXPECTED_ELM_VERSION}"
       - run: npm test
       - run: npm run build
 
