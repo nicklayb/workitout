@@ -36218,6 +36218,8 @@ const OWNER = 'nicklayb'
 const REPO = 'workitout'
 const PLANS_PATH = "plans"
 const BRANCH = "plans"
+const DEFAULT_DIFFICULTY = "unset"
+const DIFFICULTIES = [DEFAULT_DIFFICULTY, "easy", "medium", "hard", "extreme"]
 
 let octokitSingleton = null
 
@@ -36254,6 +36256,39 @@ function putAtPath(tree, path, item) {
   return {...tree, folders}
 }
 
+/**
+ * Normalizes a raw plan difficulty into one of the allowed `DIFFICULTIES`.
+ * The value is trimmed and lowercased; absent or unknown values fall back to
+ * `DEFAULT_DIFFICULTY`.
+ *
+ * @param {unknown} value Raw `difficulty` field read from the plan YAML.
+ * @returns {{difficulty: string, isKnown: boolean}} The normalized difficulty
+ *   and whether the raw value was absent or an allowed difficulty.
+ */
+function normalizeDifficulty(value) {
+  if (value === undefined || value === null) {
+    return { difficulty: DEFAULT_DIFFICULTY, isKnown: true }
+  }
+
+  const candidate = String(value).trim().toLowerCase()
+
+  if (DIFFICULTIES.includes(candidate)) {
+    return { difficulty: candidate, isKnown: true }
+  }
+
+  return { difficulty: DEFAULT_DIFFICULTY, isKnown: false }
+}
+
+function readDifficulty(yaml, planPath) {
+  const { difficulty, isKnown } = normalizeDifficulty(yaml.difficulty)
+
+  if (!isKnown) {
+    core.warning(`Unknown difficulty "${yaml.difficulty}" in ${planPath}, expected one of ${DIFFICULTIES.join(", ")}; using "${DEFAULT_DIFFICULTY}"`)
+  }
+
+  return difficulty
+}
+
 async function buildPlanMetadata(plan) {
   const filepath = buildPath(plan)
   const text = await promises_default().readFile(filepath, { encoding: "utf8" })
@@ -36262,6 +36297,7 @@ async function buildPlanMetadata(plan) {
   return {
     description: yaml.description,
     author_name: yaml.author.name || yaml.author.email || yaml.author.github,
+    difficulty: readDifficulty(yaml, plan),
     download_url: "",
     path: plan.replace(/^plans\//, ""),
     name: external_node_path_default().basename(plan),
