@@ -6,19 +6,21 @@
   "scripts": {
     "dev": "node build.js --watch",
     "build": "node build.js",
-    "test": "elm-test"
+    "test": "elm-test --compiler ./node_modules/.bin/elm"
   },
   "author": "",
   "license": "ISC",
   "type": "module",
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.16",
+    "elm": "0.19.2-0",
+    "elm-test": "0.19.2-1",
     "esbuild": "^0.25.11",
     "esbuild-plugin-elm": "^0.0.12",
+    "esbuild-postcss": "^0.0.4",
     "esbuild-style-plugin": "^1.6.3",
     "postcss": "^8.5.6",
     "postcss-import": "^16.1.1",
-    "esbuild-postcss": "^0.0.4",
     "tailwindcss": "^4.1.16"
   }
 }
