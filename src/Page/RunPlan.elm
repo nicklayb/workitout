@@ -3,7 +3,7 @@ port module Page.RunPlan exposing (Model, Msg, init, toSession, update, view)
 import Cmd.Extra exposing (delay, send)
 import File exposing (File)
 import GitHub
-import Html exposing (Html, a, button, div, h2, h4, input, label, span, text)
+import Html exposing (Html, a, aside, button, div, h2, h3, input, label, li, p, section, span, text, ul)
 import Html.Attributes exposing (class, href, type_)
 import Html.Events exposing (on, onClick)
 import Json.Decode exposing (Decoder)
@@ -216,169 +216,261 @@ toSession { session } =
     session
 
 
+unknownAuthorName : String
+unknownAuthorName =
+    "Unknown"
+
+
+weekdayAbbreviationLength : Int
+weekdayAbbreviationLength =
+    3
+
+
+skeletonRowCount : Int
+skeletonRowCount =
+    5
+
+
+cardClasses : String
+cardClasses =
+    "rounded-2xl bg-white shadow-sm ring-1 ring-gray-200"
+
+
+primaryButtonClasses : String
+primaryButtonClasses =
+    "inline-flex cursor-pointer items-center justify-center rounded-full bg-pink-500 font-semibold text-white shadow-sm transition-colors hover:bg-pink-600"
+
+
 viewPlanHeader : Plan -> Html Msg
 viewPlanHeader plan =
+    div [ class "flex items-start justify-between gap-4 border-b border-gray-100 px-6 py-4" ]
+        [ div [ class "flex min-w-0 flex-col" ]
+            [ h2 [ class "truncate text-2xl font-bold tracking-tight text-gray-800" ] [ text plan.description ]
+            , p [ class "truncate text-sm text-gray-400" ] [ text "by ", viewAuthor plan ]
+            ]
+        , button
+            [ onClick ClosePlan
+            , class "flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-full text-2xl text-gray-400 transition-colors hover:bg-pink-50 hover:text-pink-600"
+            ]
+            [ text "×" ]
+        ]
+
+
+viewAuthor : Plan -> Html Msg
+viewAuthor plan =
     let
         name =
-            Plan.authorName "Unknown" plan.author
-
-        viewAuthor author =
-            case author.email of
-                Just email ->
-                    a [ class "text-pink-600", href ("mailto:" ++ email) ] [ text name ]
-
-                Nothing ->
-                    text name
+            Plan.authorName unknownAuthorName plan.author
     in
-    div [ class "flex justify-end items-center pr-3 pt-2" ]
-        [ div [ class "flex flex-col" ]
-            [ h2 [ class "text-2xl" ] [ text plan.description ]
-            , h4 [ class "text-xs text-right" ] [ viewAuthor plan.author ]
-            ]
-        , div [] [ button [ onClick ClosePlan, class "ml-2 rounded-full text-white w-14 h-14 bg-pink-500 hover:bg-pink-600 flex justify-center items-center cursor-pointer text-5xl" ] [ text "×" ] ]
+    case plan.author.email of
+        Just email ->
+            a [ class "font-medium text-pink-500 transition-colors hover:text-pink-600", href ("mailto:" ++ email) ] [ text name ]
+
+        Nothing ->
+            span [ class "font-medium text-gray-500" ] [ text name ]
+
+
+viewRoundCounter : Model -> Html Msg
+viewRoundCounter model =
+    case model.dayPlan of
+        Just { rounds } ->
+            div [ class "flex items-baseline justify-between px-3 pt-4 pb-2" ]
+                [ span [ class "text-xs font-medium tracking-wide text-gray-400 uppercase" ] [ text "Round" ]
+                , span [ class "text-2xl font-bold text-gray-800 tabular-nums" ]
+                    [ text (String.fromInt model.currentRound)
+                    , span [ class "text-gray-400" ] [ text (" / " ++ String.fromInt rounds) ]
+                    ]
+                ]
+
+        Nothing ->
+            text ""
+
+
+stepStateClasses : Position -> Step -> { row : String, dot : String }
+stepStateClasses position step =
+    case ( Ziplist.positionEquals position Current, Plan.isBreakStep step ) of
+        ( True, True ) ->
+            { row = "bg-pink-100 text-pink-600 ring-1 ring-pink-200", dot = "bg-pink-400 ring-4 ring-pink-200" }
+
+        ( True, False ) ->
+            { row = "bg-pink-500 text-white shadow-sm", dot = "bg-white ring-4 ring-pink-400" }
+
+        ( False, True ) ->
+            { row = "text-pink-400 hover:bg-pink-50", dot = "bg-pink-200" }
+
+        ( False, False ) ->
+            { row = "text-gray-600 hover:bg-pink-50", dot = "bg-gray-300" }
+
+
+viewStep : Position -> Step -> Html Msg
+viewStep position step =
+    let
+        stateClasses =
+            stepStateClasses position step
+    in
+    li [ class ("flex items-center gap-3 rounded-lg px-3 py-2 transition-colors " ++ stateClasses.row) ]
+        [ span [ class ("size-2 shrink-0 rounded-full " ++ stateClasses.dot) ] []
+        , span [ class "min-w-0 flex-1 truncate" ] [ text (Plan.stepName step) ]
+        , span [ class "text-sm tabular-nums opacity-80" ] [ text (String.fromInt (Plan.stepSeconds step) ++ "s") ]
         ]
 
 
 viewSteps : Model -> Html Msg
 viewSteps model =
-    let
-        viewRoundCounter =
-            case model.dayPlan of
-                Just { rounds } ->
-                    div [ class "text-4xl text-center py-6" ] [ text (String.fromInt model.currentRound ++ " / " ++ String.fromInt rounds) ]
-
-                Nothing ->
-                    div [] []
-
-        viewStep position step =
-            let
-                isCurrent =
-                    Ziplist.positionEquals position Current
-
-                isBreak =
-                    Plan.isBreakStep step
-
-                defaultClasses =
-                    [ class "px-2 py-3 mb-2 rounded-md flex justify-between" ]
-
-                otherClasses =
-                    case ( isCurrent, isBreak ) of
-                        ( True, True ) ->
-                            [ class "bg-pink-200 text-pink-500" ]
-
-                        ( True, False ) ->
-                            [ class "bg-pink-500 text-white" ]
-
-                        ( False, True ) ->
-                            [ class "bg-gray-100 text-pink-300" ]
-
-                        ( False, False ) ->
-                            [ class "bg-gray-100 text-gray-500" ]
-            in
-            div (defaultClasses ++ otherClasses)
-                [ span [] [ text (Plan.stepName step) ]
-                , span [] [ text (String.fromInt (Plan.stepSeconds step) ++ "s") ]
-                ]
-    in
     case model.dayPlan of
         Just daysMap ->
-            div [] (viewRoundCounter :: Ziplist.map viewStep daysMap.steps)
+            div []
+                [ viewRoundCounter model
+                , ul [ class "space-y-1" ] (Ziplist.map viewStep daysMap.steps)
+                ]
 
         Nothing ->
-            div [ class "text-center mt-6 text-gray-600" ] [ text ("Nothing planned for " ++ Plan.dayToString model.currentDay) ]
+            p [ class "px-3 py-6 text-center text-gray-400" ] [ text ("Nothing planned for " ++ Plan.dayToString model.currentDay) ]
+
+
+viewClock : Model -> Html Msg
+viewClock model =
+    if Timer.isRunning model.currentTimer then
+        div [ class "text-8xl font-bold tracking-tight text-pink-500 tabular-nums sm:text-9xl" ] [ text (String.fromInt (Timer.remaining model.currentTimer)) ]
+
+    else
+        button [ onClick Start, class (primaryButtonClasses ++ " px-10 py-3 text-lg") ] [ text "Start" ]
 
 
 viewCurrentStep : Model -> Html Msg
 viewCurrentStep model =
-    let
-        step =
-            currentStep model
-
-        viewClock =
-            if Timer.isRunning model.currentTimer then
-                div [ class "text-6xl" ] [ text (String.fromInt (Timer.remaining model.currentTimer)) ]
-
-            else
-                div [] [ button [ onClick Start, class "rounded-md bg-pink-500 hover:bg-pink-600 text-white px-3 py-2" ] [ text "Start" ] ]
-    in
-    case step of
-        Just stepValue ->
-            div [ class "flex flex-col justify-center items-center h-full" ]
-                [ div [ class "text-2xl mb-4" ] [ text (Plan.stepName stepValue) ]
-                , viewClock
+    case currentStep model of
+        Just step ->
+            div [ class "flex flex-col items-center justify-center px-6 py-12 sm:py-20" ]
+                [ span [ class "mb-1 text-xs font-medium tracking-wide text-gray-400 uppercase" ] [ text (stepKindLabel step) ]
+                , h3 [ class "mb-3 text-center text-3xl font-bold tracking-tight text-gray-800" ] [ text (Plan.stepName step) ]
+                , viewStepDescription step
+                , viewClock model
                 ]
 
         Nothing ->
-            div [] []
+            p [ class "px-6 py-12 text-center text-gray-400" ] [ text "Pick a day with a workout to get started" ]
+
+
+stepKindLabel : Step -> String
+stepKindLabel step =
+    if Plan.isBreakStep step then
+        "Break"
+
+    else
+        "Effort"
+
+
+viewStepDescription : Step -> Html Msg
+viewStepDescription step =
+    case Plan.stepDescription step of
+        Just description ->
+            p [ class "mb-8 max-w-md text-center whitespace-pre-line text-gray-500" ] [ text description ]
+
+        Nothing ->
+            div [ class "mb-6" ] []
+
+
+viewWeekday : Model -> ( Plan.Day, Bool ) -> Html Msg
+viewWeekday model ( weekday, _ ) =
+    let
+        stateClasses =
+            if Plan.weekdayEquals weekday model.currentDay then
+                "bg-pink-500 text-white shadow-sm"
+
+            else
+                "text-gray-500 hover:bg-pink-50 hover:text-pink-600"
+    in
+    button
+        [ class ("flex-1 cursor-pointer rounded-lg py-1.5 text-center text-sm font-medium transition-colors " ++ stateClasses)
+        , onClick (ChangeDay weekday)
+        ]
+        [ text (String.slice 0 weekdayAbbreviationLength (Plan.dayToString weekday)) ]
 
 
 viewWeek : Plan -> Model -> Html Msg
 viewWeek plan model =
-    let
-        viewWeekday ( weekday, hasWorkout ) =
-            let
-                defaultClasses =
-                    "px-1 py-0.5 rounded-md text-pink-500 hover:bg-pink-200 min-w-10 text-center cursor-pointer"
-
-                activeClasses =
-                    if Plan.weekdayEquals weekday model.currentDay then
-                        "bg-pink-500 text-white shadow-md"
-
-                    else
-                        ""
-            in
-            div [ class (defaultClasses ++ " " ++ activeClasses), onClick (ChangeDay weekday) ] [ text (String.slice 0 3 (Plan.dayToString weekday)) ]
-    in
-    div [ class "flex justify-evenly mt-4" ] (List.map viewWeekday (Plan.weekdays plan))
+    div [ class "flex gap-1 rounded-xl bg-gray-100 p-1" ] (List.map (viewWeekday model) (Plan.weekdays plan))
 
 
 viewPlan : Plan -> Model -> Html Msg
 viewPlan plan model =
-    div [ class "flex h-full" ]
-        [ div [ class "w-1/4 px-2" ]
+    div [ class "flex flex-col gap-6 lg:flex-row lg:items-start" ]
+        [ aside [ class (cardClasses ++ " p-3 lg:w-80 lg:shrink-0") ]
             [ viewWeek plan model
             , viewSteps model
             ]
-        , div [ class "w-full" ]
+        , section [ class (cardClasses ++ " min-w-0 flex-1") ]
             [ viewPlanHeader plan
             , viewCurrentStep model
             ]
         ]
 
 
+viewPageContainer : List (Html Msg) -> Html Msg
+viewPageContainer children =
+    div [ class "bg-gray-50 px-4 py-6 sm:py-10" ]
+        [ div [ class "mx-auto max-w-6xl" ] children ]
+
+
 viewContent : Model -> Html Msg
 viewContent model =
-    case ( model.plan, model.planPath, model.lastPlan ) of
-        ( Resource.Loaded plan, _, _ ) ->
-            viewPlan plan model
+    viewPageContainer
+        [ case ( model.plan, model.planPath, model.lastPlan ) of
+            ( Resource.Loaded plan, _, _ ) ->
+                viewPlan plan model
 
-        ( Resource.Failed error, _, _ ) ->
-            div []
-                [ div [ class "text-center text-red-500 py-6 bg-red-200" ] [ text error ]
-                , viewUploadPath model
-                ]
+            ( Resource.Failed error, _, _ ) ->
+                viewUploadPath (Just error)
 
-        ( _, Nothing, Just _ ) ->
-            viewLoading
+            ( _, Nothing, Just _ ) ->
+                viewLoading
 
-        ( _, _, _ ) ->
-            viewUploadPath model
+            ( _, _, _ ) ->
+                viewUploadPath Nothing
+        ]
+
+
+viewSkeletonRow : Int -> Html Msg
+viewSkeletonRow _ =
+    div [ class "flex items-center gap-3 px-3 py-2" ]
+        [ div [ class "size-2 rounded-full bg-gray-200" ] []
+        , div [ class "h-4 flex-1 rounded bg-gray-200" ] []
+        , div [ class "h-4 w-8 rounded bg-gray-200" ] []
+        ]
 
 
 viewLoading : Html Msg
 viewLoading =
-    div [] [ text "Loading" ]
-
-
-viewUploadPath : Model -> Html Msg
-viewUploadPath model =
-    div [ class "flex justify-center items-center h-full flex-col" ]
-        [ div [ class "mb-3 text-2xl" ] [ text "Upload a plan" ]
-        , label []
-            [ div [ class "bg-pink-500 hover:bg-pink-600 px-5 py-2 rounded-md text-white" ] [ text "Upload" ]
-            , input [ type_ "file", on "change" (Json.Decode.map GotFile filesDecoder), class "hidden" ] []
+    div [ class "flex animate-pulse flex-col gap-6 lg:flex-row lg:items-start" ]
+        [ div [ class (cardClasses ++ " space-y-1 p-3 lg:w-80 lg:shrink-0") ]
+            (div [ class "h-8 rounded-xl bg-gray-100" ] [] :: List.map viewSkeletonRow (List.range 1 skeletonRowCount))
+        , div [ class (cardClasses ++ " flex min-w-0 flex-1 flex-col items-center gap-4 px-6 py-20") ]
+            [ div [ class "h-6 w-48 rounded bg-gray-200" ] []
+            , div [ class "h-4 w-64 rounded bg-gray-200" ] []
+            , div [ class "h-12 w-36 rounded-full bg-gray-200" ] []
             ]
-        , div [ class "mt-2" ] [ a [ class "text-pink-500 cursor-pointer", href "/" ] [ text "Or return home to select a community provided plan" ] ]
+        ]
+
+
+viewError : String -> Html Msg
+viewError error =
+    p [ class "mb-4 rounded-lg bg-red-50 px-3 py-4 text-center text-red-600" ] [ text error ]
+
+
+viewUploadPath : Maybe String -> Html Msg
+viewUploadPath maybeError =
+    div [ class "mx-auto max-w-md" ]
+        [ Maybe.map viewError maybeError |> Maybe.withDefault (text "")
+        , div [ class (cardClasses ++ " flex flex-col items-center px-6 py-10 text-center") ]
+            [ h2 [ class "text-2xl font-bold tracking-tight text-gray-800" ] [ text "Upload a plan" ]
+            , p [ class "mt-2 mb-6 text-gray-500" ] [ text "Load a plan file from your device" ]
+            , label [ class (primaryButtonClasses ++ " px-8 py-2.5") ]
+                [ text "Upload"
+                , input [ type_ "file", on "change" (Json.Decode.map GotFile filesDecoder), class "hidden" ] []
+                ]
+            , a [ class "mt-6 text-sm text-gray-400 transition-colors hover:text-pink-500", href "/" ] [ text "Or return home to select a community provided plan →" ]
+            ]
         ]
 
 

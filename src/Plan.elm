@@ -1,6 +1,7 @@
-module Plan exposing (Day(..), DaysMap, Plan, Step, authorName, dayEnum, dayFromString, dayFromTimeDay, dayToString, daysMap, daysMapNextStep, decode, isBreakStep, stepName, stepSeconds, weekdayEquals, weekdays)
+module Plan exposing (Day(..), DaysMap, Plan, Step, authorName, dayEnum, dayFromString, dayFromTimeDay, dayToString, daysMap, daysMapNextStep, decode, isBreakStep, stepDescription, stepName, stepSeconds, weekdayEquals, weekdays)
 
 import Dict exposing (Dict)
+import Difficulty exposing (Difficulty)
 import Time exposing (Weekday(..))
 import Yaml.Decode as YamlDecode exposing (Error(..))
 import Ziplist exposing (Ziplist)
@@ -164,11 +165,11 @@ type alias Author =
 
 
 type alias EffortWorkoutSpec =
-    { name : String, seconds : Int }
+    { name : String, seconds : Int, description : Maybe String }
 
 
 type alias BreakWorkoutSpec =
-    { name : Maybe String, seconds : Int }
+    { name : Maybe String, seconds : Int, description : Maybe String }
 
 
 type Step
@@ -206,6 +207,7 @@ type alias Plan =
     { description : String
     , author : Author
     , planning : Planning
+    , difficulty : Difficulty
     }
 
 
@@ -217,6 +219,18 @@ stepSeconds step =
 
         Effort { seconds } ->
             seconds
+
+
+{-| Explanation of how to perform the step, if the plan author provided one.
+-}
+stepDescription : Step -> Maybe String
+stepDescription step =
+    case step of
+        Break { description } ->
+            description
+
+        Effort { description } ->
+            description
 
 
 stepName : Step -> String
@@ -343,6 +357,9 @@ convertDaysMap inputDict =
 decoder : YamlDecode.Decoder Plan
 decoder =
     let
+        descriptionDecoder =
+            YamlDecode.maybe (YamlDecode.field "description" YamlDecode.string)
+
         authorDecoder =
             YamlDecode.map3 Author
                 (YamlDecode.maybe (YamlDecode.field "github" YamlDecode.string))
@@ -350,14 +367,16 @@ decoder =
                 (YamlDecode.maybe (YamlDecode.field "email" YamlDecode.string))
 
         breakWorkoutDecoder =
-            YamlDecode.map2 BreakWorkoutSpec
+            YamlDecode.map3 BreakWorkoutSpec
                 (YamlDecode.maybe (YamlDecode.field "name" YamlDecode.string))
                 (YamlDecode.field "seconds" YamlDecode.int)
+                descriptionDecoder
 
         effortWorkoutDecoder =
-            YamlDecode.map2 EffortWorkoutSpec
+            YamlDecode.map3 EffortWorkoutSpec
                 (YamlDecode.field "name" YamlDecode.string)
                 (YamlDecode.field "seconds" YamlDecode.int)
+                descriptionDecoder
 
         stepConverter decodedType =
             case decodedType of
@@ -383,11 +402,16 @@ decoder =
         planningDecoder =
             YamlDecode.map Planning
                 (YamlDecode.field "days" daysDecoder)
+
+        difficultyDecoder =
+            YamlDecode.maybe (YamlDecode.field "difficulty" Difficulty.yamlDecoder)
+                |> YamlDecode.map (Maybe.withDefault Difficulty.default)
     in
-    YamlDecode.map3 Plan
+    YamlDecode.map4 Plan
         (YamlDecode.field "description" YamlDecode.string)
         (YamlDecode.field "author" authorDecoder)
         (YamlDecode.field "planning" planningDecoder)
+        difficultyDecoder
 
 
 decode : String -> Result String Plan
