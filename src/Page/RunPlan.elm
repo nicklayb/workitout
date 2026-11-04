@@ -397,6 +397,17 @@ viewCompleted model =
         ]
 
 
+viewCompleted : Model -> Html Msg
+viewCompleted model =
+    div [ class "flex flex-col items-center justify-center px-6 py-12 text-center sm:py-20" ]
+        [ span [ class "mb-1 text-xs font-medium tracking-wide text-gray-400 uppercase" ] [ text "Workout completed" ]
+        , h3 [ class "mb-3 text-3xl font-bold tracking-tight text-gray-800" ] [ text "Well done!" ]
+        , p [ class "mb-8 max-w-md text-gray-500" ]
+            [ text ("You completed all " ++ String.fromInt model.currentRound ++ " rounds of " ++ Plan.dayToString model.currentDay ++ "'s workout.") ]
+        , button [ onClick Restart, class (primaryButtonClasses ++ " px-10 py-3 text-lg") ] [ text "Restart" ]
+        ]
+
+
 viewCurrentStep : Model -> Html Msg
 viewCurrentStep model =
     case currentStep model of
