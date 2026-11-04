@@ -1,0 +1,20 @@
+name: Build and test pull request
+
+permissions:
+  contents: read
+
+on:
+  pull_request:
+    # The plans branch only holds plan files indexed by its own workflow.
+    branches-ignore: ["plans"]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/build_and_test
