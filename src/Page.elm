@@ -13,6 +13,7 @@ type Page
     | Home
     | RunPlan
     | Settings
+    | PlanEditor
 
 
 appName : String
@@ -22,15 +23,15 @@ appName =
 
 {-| Wraps a page content into the shared layout: a top bar linking home (the
 name is hidden on the home page, which has its own title) and settings, the
-given application-wide `notice` and the content area.
+given application-wide `notices` and the content area.
 -}
-view : Session -> Page -> Maybe (Html msg) -> { title : String, content : Html msg } -> Document msg
-view _ page maybeNotice { title, content } =
+view : Session -> Page -> List (Html msg) -> { title : String, content : Html msg } -> Document msg
+view _ page notices { title, content } =
     { title = title ++ " :: WorkItOut"
     , body =
         [ div [ class "flex min-h-screen flex-col bg-gray-50 text-gray-800 antialiased" ]
             [ viewTopBar page
-            , viewNotice maybeNotice
+            , viewNotices notices
             , main_ [ class "flex-1" ] [ content ]
             , viewFooter
             ]
@@ -46,14 +47,13 @@ viewLoading =
         [ span [ class "animate-pulse text-gray-400" ] [ text "Loading…" ] ]
 
 
-viewNotice : Maybe (Html msg) -> Html msg
-viewNotice maybeNotice =
-    case maybeNotice of
-        Just notice ->
-            div [ class "mx-auto w-full max-w-6xl px-4 pt-4" ] [ notice ]
+viewNotices : List (Html msg) -> Html msg
+viewNotices notices =
+    if List.isEmpty notices then
+        text ""
 
-        Nothing ->
-            text ""
+    else
+        div [ class "mx-auto flex w-full max-w-6xl flex-col gap-2 px-4 pt-4" ] notices
 
 
 viewTopBar : Page -> Html msg

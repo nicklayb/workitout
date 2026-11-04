@@ -1,4 +1,4 @@
-module Plan exposing (Day(..), DaysMap, Plan, Step, authorName, dayEnum, dayFromString, dayFromTimeDay, dayToString, daysMap, daysMapNextStep, decode, isBreakStep, stepDescription, stepName, stepSeconds, weekdayEquals, weekdays)
+module Plan exposing (Author, BreakWorkoutSpec, Day(..), DaysMap, EffortWorkoutSpec, Plan, Step(..), allDays, authorName, dayEnum, dayFromString, dayFromTimeDay, dayToString, daysMap, daysMapNextStep, decode, isBreakStep, stepDescription, stepName, stepSeconds, weekdayEquals, weekdays)
 
 import Dict exposing (Dict)
 import Difficulty exposing (Difficulty)
@@ -15,6 +15,13 @@ type Day
     | Friday
     | Saturday
     | Sunday
+
+
+{-| Every day of the week, starting on Sunday.
+-}
+allDays : List Day
+allDays =
+    [ Sunday, Monday, Tuesday, Wednesday, Thursday, Friday, Saturday ]
 
 
 weekdays : Plan -> List ( Day, Bool )
@@ -208,6 +215,7 @@ type alias Plan =
     , author : Author
     , planning : Planning
     , difficulty : Difficulty
+    , forkedFrom : Maybe String
     }
 
 
@@ -407,11 +415,12 @@ decoder =
             YamlDecode.maybe (YamlDecode.field "difficulty" Difficulty.yamlDecoder)
                 |> YamlDecode.map (Maybe.withDefault Difficulty.default)
     in
-    YamlDecode.map4 Plan
+    YamlDecode.map5 Plan
         (YamlDecode.field "description" YamlDecode.string)
         (YamlDecode.field "author" authorDecoder)
         (YamlDecode.field "planning" planningDecoder)
         difficultyDecoder
+        (YamlDecode.maybe (YamlDecode.field "forkedFrom" YamlDecode.string))
 
 
 decode : String -> Result String Plan

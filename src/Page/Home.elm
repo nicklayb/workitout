@@ -12,6 +12,7 @@ import Route
 import Session exposing (Session)
 import Set exposing (Set)
 import Tree exposing (Folder(..))
+import Ui.Button as Button
 
 
 type alias Model =
@@ -129,7 +130,7 @@ viewPlan plan =
     li []
         [ a
             [ class "group flex items-center gap-3 rounded-lg px-3 py-2 transition-colors hover:bg-pink-50"
-            , href (Route.routeToString (Route.RunPlan (Just plan.path) Nothing))
+            , href (Route.routeToString (Route.RunPlan (Route.Community plan.path) Nothing))
             ]
             ([ viewDifficultyDot plan.difficulty
              , div [ class "flex min-w-0 flex-1 flex-col" ]
@@ -221,7 +222,9 @@ viewContent model =
     div [ class "min-h-full bg-gray-50 px-4 py-10" ]
         [ div [ class "mx-auto max-w-2xl" ]
             [ h1 [ class "text-center text-4xl font-bold tracking-tight text-pink-500" ] [ text "Workitout" ]
-            , p [ class "mt-2 mb-8 text-center text-gray-500" ] [ text "Pick a community plan to get started" ]
+            , p [ class "mt-2 text-center text-gray-500" ] [ text "Pick a community plan to get started" ]
+            , div [ class "mt-4 mb-8 flex justify-center" ]
+                [ a [ class (Button.primaryClasses ++ " px-6 py-2"), href (Route.routeToString (Route.PlanEditor Route.NewPlan)) ] [ text "Create a plan" ] ]
             , div [ class "rounded-2xl bg-white p-3 shadow-sm ring-1 ring-gray-200" ] [ innerContent ]
             ]
         ]

@@ -82,6 +82,13 @@ decodeTests =
     describe "decode"
         [ test "decodes the plan description" <|
             \_ -> expectDecodedPlan (.description >> Expect.equal Fixtures.planDescription)
+        , test "has no forkedFrom when absent" <|
+            \_ -> expectDecodedPlan (.forkedFrom >> Expect.equal Nothing)
+        , test "decodes forkedFrom" <|
+            \_ ->
+                Plan.decode (Fixtures.duffPlanYaml ++ "forkedFrom: chunkylover53/duff.yml\n")
+                    |> Result.map .forkedFrom
+                    |> Expect.equal (Ok (Just "chunkylover53/duff.yml"))
         , test "decodes the author" <|
             \_ ->
                 expectDecodedPlan

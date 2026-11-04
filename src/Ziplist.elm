@@ -1,4 +1,4 @@
-module Ziplist exposing (Position(..), Ziplist(..), current, init, isReset, map, next, positionEquals)
+module Ziplist exposing (Position(..), Ziplist(..), current, init, isReset, map, next, positionEquals, toList)
 
 
 type Ziplist a
@@ -40,6 +40,18 @@ isReset ziplist =
 
         _ ->
             False
+
+
+{-| Every item, in their original order.
+-}
+toList : Ziplist a -> List a
+toList ziplist =
+    case ziplist of
+        Ziplist back currentItem front ->
+            List.reverse back ++ currentItem :: front
+
+        Empty ->
+            []
 
 
 next : Ziplist a -> Ziplist a

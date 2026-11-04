@@ -1,20 +1,24 @@
 port module Page.RunPlan exposing (Model, Msg, init, toSession, update, view)
 
 import Cmd.Extra exposing (delay, send)
+import CustomPlans
 import File exposing (File)
 import GitHub
 import Html exposing (Html, a, aside, button, div, h2, h3, input, label, li, p, section, span, text, ul)
-import Html.Attributes exposing (class, href, type_)
+import Html.Attributes exposing (attribute, class, href, title, type_)
 import Html.Events exposing (on, onClick)
 import Json.Decode exposing (Decoder)
 import Plan exposing (Day(..), Plan, Step, stepSeconds)
+import PlanDraft.Yaml
 import Resource exposing (Resource)
+import Route exposing (PlanSource(..))
 import Session exposing (Session)
 import Settings exposing (Settings)
 import Task
 import Timer exposing (Timer)
 import Ui.Button as Button
 import Ui.Card as Card
+import Ui.Icon as Icon
 import Ziplist exposing (Position(..))
 
 
@@ -26,7 +30,7 @@ port storeLastPlan : Maybe String -> Cmd msg
 
 type alias Model =
     { session : Session
-    , planPath : Maybe String
+    , source : PlanSource
     , file : Maybe File
     , plan : Resource Plan
     , dayPlan : Maybe Plan.DaysMap
@@ -49,8 +53,8 @@ type Msg
     | Restart
 
 
-init : Maybe String -> Maybe Plan.Day -> Session -> ( Model, Cmd Msg )
-init maybePath maybeDay session =
+init : PlanSource -> Maybe Plan.Day -> Session -> ( Model, Cmd Msg )
+init source maybeDay session =
     let
         currentDay =
             case maybeDay of
@@ -62,7 +66,7 @@ init maybePath maybeDay session =
 
         model =
             { session = session
-            , planPath = maybePath
+            , source = source
             , file = Nothing
             , plan = Resource.init
             , dayPlan = Nothing
@@ -73,24 +77,43 @@ init maybePath maybeDay session =
             , isCompleted = False
             }
     in
-    ( model, initCommand model )
+    case source of
+        Custom customId ->
+            ( loadCustomPlan customId model, Cmd.none )
+
+        _ ->
+            ( model, initCommand model )
+
+
+{-| Loads one of the user's plans, which are already in the session.
+-}
+loadCustomPlan : Int -> Model -> Model
+loadCustomPlan customId model =
+    let
+        result =
+            CustomPlans.get customId (Session.customPlans model.session)
+                |> Result.fromMaybe "This plan doesn't exist anymore"
+                |> Result.andThen PlanDraft.Yaml.toPlan
+    in
+    case result of
+        Ok plan ->
+            putLoadedPlan plan model
+
+        Err error ->
+            { model | plan = Resource.fail error }
 
 
 initCommand : Model -> Cmd Msg
 initCommand model =
-    let
-        maybeDecodeLastPlan =
-            case ( model.planPath, model.lastPlan ) of
-                ( Nothing, Just string ) ->
-                    Cmd.Extra.send (PlanLoaded { result = Plan.decode string, storeLastPlan = Nothing })
+    case ( model.source, model.lastPlan ) of
+        ( LastPlan, Just string ) ->
+            Cmd.Extra.send (PlanLoaded { result = Plan.decode string, storeLastPlan = Nothing })
 
-                ( Just planPath, _ ) ->
-                    GitHub.fetchContent FileFetched planPath
+        ( Community planPath, _ ) ->
+            GitHub.fetchContent FileFetched planPath
 
-                _ ->
-                    Cmd.none
-    in
-    Cmd.batch [ maybeDecodeLastPlan ]
+        _ ->
+            Cmd.none
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -290,19 +313,50 @@ skeletonRowCount =
     5
 
 
-viewPlanHeader : Plan -> Html Msg
-viewPlanHeader plan =
+headerButtonClasses : String
+headerButtonClasses =
+    "flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-full text-2xl text-gray-400 transition-colors hover:bg-pink-50 hover:text-pink-600"
+
+
+viewPlanHeader : PlanSource -> Plan -> Html Msg
+viewPlanHeader source plan =
     div [ class "flex items-start justify-between gap-4 border-b border-gray-100 px-6 py-4" ]
         [ div [ class "flex min-w-0 flex-col" ]
             [ h2 [ class "truncate text-2xl font-bold tracking-tight text-gray-800" ] [ text plan.description ]
             , p [ class "truncate text-sm text-gray-400" ] [ text "by ", viewAuthor plan ]
             ]
-        , button
-            [ onClick ClosePlan
-            , class "flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-full text-2xl text-gray-400 transition-colors hover:bg-pink-50 hover:text-pink-600"
+        , div [ class "flex shrink-0 items-center" ]
+            [ viewEditorLink source
+            , button [ onClick ClosePlan, attribute "aria-label" "Close plan", title "Close plan", class headerButtonClasses ] [ text "×" ]
             ]
-            [ text "×" ]
         ]
+
+
+{-| Link opening the plan in the editor: a copy of a community plan, or the
+user's own plan itself. Uploaded plans have nothing to open.
+-}
+viewEditorLink : PlanSource -> Html Msg
+viewEditorLink source =
+    case source of
+        Community planPath ->
+            viewHeaderLink (Route.PlanEditor (Route.Fork planPath)) "Fork this plan" (Icon.fork "size-5")
+
+        Custom customId ->
+            viewHeaderLink (Route.PlanEditor (Route.EditPlan customId)) "Edit this plan" (Icon.pencil "size-5")
+
+        LastPlan ->
+            text ""
+
+
+viewHeaderLink : Route.Route -> String -> Html Msg -> Html Msg
+viewHeaderLink route label icon =
+    a
+        [ href (Route.routeToString route)
+        , attribute "aria-label" label
+        , title label
+        , class headerButtonClasses
+        ]
+        [ icon ]
 
 
 viewAuthor : Plan -> Html Msg
@@ -470,7 +524,7 @@ viewPlan plan model =
             , viewSteps model
             ]
         , section [ class (Card.classes ++ " min-w-0 flex-1") ]
-            [ viewPlanHeader plan
+            [ viewPlanHeader model.source plan
             , viewCurrentStep model
             ]
         ]
@@ -485,14 +539,14 @@ viewPageContainer children =
 viewContent : Model -> Html Msg
 viewContent model =
     viewPageContainer
-        [ case ( model.plan, model.planPath, model.lastPlan ) of
+        [ case ( model.plan, model.source, model.lastPlan ) of
             ( Resource.Loaded plan, _, _ ) ->
                 viewPlan plan model
 
             ( Resource.Failed error, _, _ ) ->
                 viewUploadPath (Just error)
 
-            ( _, Nothing, Just _ ) ->
+            ( _, LastPlan, Just _ ) ->
                 viewLoading
 
             ( _, _, _ ) ->

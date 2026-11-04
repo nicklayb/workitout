@@ -1,7 +1,8 @@
-module Ui.Icon exposing (gear)
+module Ui.Icon exposing (chevronDown, chevronUp, fork, gear, pencil)
 
-{-| Inline SVG icons, drawn with `currentColor` so they follow the text color.
-Paths come from Heroicons (MIT license).
+{-| Inline SVG outline icons, drawn with `currentColor` so they follow the text
+color and sized through the given classes. The gear, chevron and pencil paths come
+from Heroicons (MIT license).
 -}
 
 import Html exposing (Html)
@@ -19,10 +20,20 @@ gearCenterPath =
     "M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"
 
 
-{-| Gear icon, sized through the given classes.
+{-| Two branches leaving a trunk: circles on the three ends, joined by lines.
 -}
-gear : String -> Html msg
-gear classes =
+forkPaths : List String
+forkPaths =
+    [ "M8 5a2 2 0 1 1-4 0 2 2 0 0 1 4 0Z"
+    , "M20 5a2 2 0 1 1-4 0 2 2 0 0 1 4 0Z"
+    , "M14 19a2 2 0 1 1-4 0 2 2 0 0 1 4 0Z"
+    , "M6 7v1a3 3 0 0 0 3 3h6a3 3 0 0 0 3-3V7"
+    , "M12 11v6"
+    ]
+
+
+outline : List String -> String -> Html msg
+outline paths classes =
     svg
         [ viewBox "0 0 24 24"
         , fill "none"
@@ -32,6 +43,33 @@ gear classes =
         , strokeLinejoin "round"
         , class classes
         ]
-        [ path [ d gearOutlinePath ] []
-        , path [ d gearCenterPath ] []
-        ]
+        (List.map (\pathDefinition -> path [ d pathDefinition ] []) paths)
+
+
+gear : String -> Html msg
+gear =
+    outline [ gearOutlinePath, gearCenterPath ]
+
+
+{-| Fork icon, used to copy a community plan into the editor.
+-}
+fork : String -> Html msg
+fork =
+    outline forkPaths
+
+
+{-| Pencil icon, used to edit a plan.
+-}
+pencil : String -> Html msg
+pencil =
+    outline [ "m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125" ]
+
+
+chevronUp : String -> Html msg
+chevronUp =
+    outline [ "m4.5 15.75 7.5-7.5 7.5 7.5" ]
+
+
+chevronDown : String -> Html msg
+chevronDown =
+    outline [ "m19.5 8.25-7.5 7.5-7.5-7.5" ]
