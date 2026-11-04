@@ -2,21 +2,31 @@ import { Elm } from './Main.elm'
 import "./app.css"
 
 const LAST_PLAN_KEY = "last_plan"
+const SETTINGS_KEY = "settings"
 
 const app = Elm.Main.init({
   node: document.getElementById('elmRoot'),
   flags: {
     lastPlan: localStorage.getItem(LAST_PLAN_KEY),
+    settings: localStorage.getItem(SETTINGS_KEY),
     weekday: (new Date()).getDay()
   }
 });
 
-app.ports && app.ports.storeLastPlan && app.ports.storeLastPlan.subscribe(function(value) {
+function storeOrRemove(key, value) {
   if (value === null) {
-    localStorage.removeItem(LAST_PLAN_KEY)
+    localStorage.removeItem(key)
   } else {
-    localStorage.setItem(LAST_PLAN_KEY, value)
+    localStorage.setItem(key, value)
   }
+}
+
+app.ports && app.ports.storeLastPlan && app.ports.storeLastPlan.subscribe(function(value) {
+  storeOrRemove(LAST_PLAN_KEY, value)
+})
+
+app.ports && app.ports.storeSettings && app.ports.storeSettings.subscribe(function(value) {
+  storeOrRemove(SETTINGS_KEY, value)
 })
 
 app.ports.playSound.subscribe(function(message) {

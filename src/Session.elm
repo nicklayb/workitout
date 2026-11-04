@@ -1,9 +1,10 @@
-module Session exposing (Session, appConfig, currentDay, init, navKey, putSession, putUrl, url, urlChanged)
+module Session exposing (Notice(..), Session, appConfig, currentDay, init, navKey, notice, putNotice, putSession, putSettings, putUrl, settings, url, urlChanged)
 
 import AppConfig exposing (AppConfig)
 import Browser.Navigation as Nav
 import Resource exposing (Resource(..))
 import Route exposing (Route(..))
+import Settings exposing (Settings)
 import Time
 import Url exposing (Url)
 
@@ -13,7 +14,16 @@ type alias Session =
     , url : Url
     , appConfig : AppConfig
     , currentDay : Time.Weekday
+    , settings : Settings
+    , notice : Maybe Notice
     }
+
+
+{-| Application-wide message shown above every page until dismissed.
+-}
+type Notice
+    = SavedSettingsInvalid
+    | SettingsMigrated
 
 
 type alias WithSession s =
@@ -55,6 +65,8 @@ init navKeyInput urlInput appConfigInput =
     , url = urlInput
     , appConfig = appConfigInput
     , currentDay = weekday
+    , settings = Settings.default
+    , notice = Nothing
     }
 
 
@@ -86,3 +98,27 @@ urlChanged compareUrl session =
 putUrl : Url -> Session -> Session
 putUrl urlInput session =
     { session | url = urlInput }
+
+
+{-| Settings currently in use.
+-}
+settings : Session -> Settings
+settings session =
+    session.settings
+
+
+putSettings : Settings -> Session -> Session
+putSettings settingsInput session =
+    { session | settings = settingsInput }
+
+
+{-| Application-wide notice to display, if any.
+-}
+notice : Session -> Maybe Notice
+notice session =
+    session.notice
+
+
+putNotice : Maybe Notice -> Session -> Session
+putNotice noticeInput session =
+    { session | notice = noticeInput }
