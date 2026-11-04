@@ -6,7 +6,7 @@ change detection.
 
 import Expect
 import Plan exposing (Day(..))
-import Route exposing (Route(..))
+import Route exposing (EditorTarget(..), PlanSource(..), Route(..))
 import Test exposing (Test, describe, test)
 import Url exposing (Url)
 
@@ -33,11 +33,15 @@ urlFrom path =
 routes : List Route
 routes =
     [ Home
-    , RunPlan Nothing Nothing
-    , RunPlan (Just "plans/duff.yml") Nothing
-    , RunPlan Nothing (Just Wednesday)
-    , RunPlan (Just "springfield/moe's tavern & grill.yml") (Just Sunday)
+    , RunPlan LastPlan Nothing
+    , RunPlan (Community "plans/duff.yml") Nothing
+    , RunPlan LastPlan (Just Wednesday)
+    , RunPlan (Community "springfield/moe's tavern & grill.yml") (Just Sunday)
+    , RunPlan (Custom 742) (Just Friday)
     , Settings
+    , PlanEditor NewPlan
+    , PlanEditor (Fork "chunkylover53/duff.yml")
+    , PlanEditor (EditPlan 742)
     ]
 
 
@@ -48,11 +52,15 @@ suite =
             [ test "home is the root" <|
                 \_ -> Route.routeToString Home |> Expect.equal "/"
             , test "run plan without parameters" <|
-                \_ -> Route.routeToString (RunPlan Nothing Nothing) |> Expect.equal "/plans/run"
+                \_ -> Route.routeToString (RunPlan LastPlan Nothing) |> Expect.equal "/plans/run"
             , test "run plan with day and path parameters" <|
                 \_ ->
-                    Route.routeToString (RunPlan (Just "duff.yml") (Just Monday))
+                    Route.routeToString (RunPlan (Community "duff.yml") (Just Monday))
                         |> Expect.equal "/plans/run?day=monday&path=duff.yml"
+            , test "plan editor forking a plan" <|
+                \_ -> Route.routeToString (PlanEditor (Fork "duff.yml")) |> Expect.equal "/plans/editor?fork=duff.yml"
+            , test "plan editor editing a plan" <|
+                \_ -> Route.routeToString (PlanEditor (EditPlan 3)) |> Expect.equal "/plans/editor?plan=3"
             , test "settings" <|
                 \_ -> Route.routeToString Settings |> Expect.equal "/settings"
             ]
@@ -63,7 +71,11 @@ suite =
                         |> List.map (Route.routeToString >> parseRoute)
                         |> Expect.equal (List.map Just routes)
             , test "ignores an unknown day" <|
-                \_ -> parseRoute "/plans/run?day=krustyday" |> Expect.equal (Just (RunPlan Nothing Nothing))
+                \_ -> parseRoute "/plans/run?day=krustyday" |> Expect.equal (Just (RunPlan LastPlan Nothing))
+            , test "parses a custom plan" <|
+                \_ -> parseRoute "/plans/run?custom=3" |> Expect.equal (Just (RunPlan (Custom 3) Nothing))
+            , test "prefers the community path over a custom plan" <|
+                \_ -> parseRoute "/plans/run?custom=3&path=duff.yml" |> Expect.equal (Just (RunPlan (Community "duff.yml") Nothing))
             , test "rejects unknown paths" <|
                 \_ -> parseRoute "/kwik-e-mart" |> Expect.equal Nothing
             ]

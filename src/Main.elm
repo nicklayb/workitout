@@ -3,12 +3,15 @@ module Main exposing (..)
 import AppConfig exposing (AppConfig)
 import Browser exposing (Document)
 import Browser.Navigation as Nav
+import CustomPlans
+import CustomPlans.Storage as CustomPlansStorage
 import Html exposing (Html, text)
 import Html.Attributes
 import Page
 import Page.Blank as BlankPage
 import Page.Errors.NotFound as NotFoundPage
 import Page.Home as HomePage
+import Page.PlanEditor as PlanEditorPage
 import Page.RunPlan as RunPlanPage
 import Page.Settings as SettingsPage
 import Route exposing (Route(..))
@@ -26,6 +29,7 @@ type Model
     | Home HomePage.Model
     | RunPlan RunPlanPage.Model
     | Settings SettingsPage.Model
+    | PlanEditor PlanEditorPage.Model
 
 
 type Msg
@@ -35,7 +39,8 @@ type Msg
     | GotHomeMsg HomePage.Msg
     | GotRunPlanMsg RunPlanPage.Msg
     | GotSettingsMsg SettingsPage.Msg
-    | DismissedNotice
+    | GotPlanEditorMsg PlanEditorPage.Msg
+    | DismissedNotice Int
 
 
 main : Program AppConfig Model Msg
@@ -60,13 +65,16 @@ subscriptions model =
 init : AppConfig -> Url -> Nav.Key -> ( Model, Cmd Msg )
 init appConfig url navKey =
     let
-        ( session, storageCmd ) =
+        ( sessionWithSettings, settingsStorageCmd ) =
             loadStoredSettings appConfig.settings (Session.init navKey url appConfig)
+
+        ( session, plansStorageCmd ) =
+            loadStoredPlans appConfig.customPlans sessionWithSettings
 
         ( model, routeCmd ) =
             changeRouteTo (Route.fromUrl url) (Redirect session)
     in
-    ( model, Cmd.batch [ storageCmd, routeCmd ] )
+    ( model, Cmd.batch [ settingsStorageCmd, plansStorageCmd, routeCmd ] )
 
 
 {-| Restores the settings saved in the local storage. Outdated ones are
@@ -84,12 +92,30 @@ loadStoredSettings maybeStoredSettings session =
         Just (Ok (Persisted.Migrated settings)) ->
             ( session
                 |> Session.putSettings settings
-                |> Session.putNotice (Just Session.SettingsMigrated)
+                |> Session.addNotice Session.SettingsMigrated
             , Storage.save settings
             )
 
         Just (Err _) ->
-            ( Session.putNotice (Just Session.SavedSettingsInvalid) session, Storage.clear )
+            ( Session.addNotice Session.SavedSettingsInvalid session, Storage.clear )
+
+
+{-| Restores the user's plans saved in the local storage. Invalid ones are
+removed and the user is notified, with a way to download what was removed.
+-}
+loadStoredPlans : Maybe String -> Session -> ( Session, Cmd Msg )
+loadStoredPlans maybeStoredPlans session =
+    case maybeStoredPlans of
+        Nothing ->
+            ( session, Cmd.none )
+
+        Just storedPlans ->
+            case CustomPlans.decodeString storedPlans of
+                Ok customPlans ->
+                    ( Session.putCustomPlans customPlans session, Cmd.none )
+
+                Err _ ->
+                    ( Session.addNotice (Session.SavedPlansInvalid storedPlans) session, CustomPlansStorage.clear )
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -135,8 +161,12 @@ update msg model =
             SettingsPage.update subMsg settings
                 |> updateWith Settings GotSettingsMsg model
 
-        ( DismissedNotice, _ ) ->
-            ( putSession (Session.putNotice Nothing (toSession model)) model, Cmd.none )
+        ( GotPlanEditorMsg subMsg, PlanEditor planEditor ) ->
+            PlanEditorPage.update subMsg planEditor
+                |> updateWith PlanEditor GotPlanEditorMsg model
+
+        ( DismissedNotice index, _ ) ->
+            ( putSession (Session.dismissNotice index (toSession model)) model, Cmd.none )
 
         ( _, _ ) ->
             ( model, Cmd.none )
@@ -153,13 +183,17 @@ changeRouteTo maybeRoute model =
             HomePage.init session
                 |> updateWith Home GotHomeMsg model
 
-        Just (Route.RunPlan maybeString maybeDay) ->
-            RunPlanPage.init maybeString maybeDay session
+        Just (Route.RunPlan source maybeDay) ->
+            RunPlanPage.init source maybeDay session
                 |> updateWith RunPlan GotRunPlanMsg model
 
         Just Route.Settings ->
             SettingsPage.init session
                 |> updateWith Settings GotSettingsMsg model
+
+        Just (Route.PlanEditor target) ->
+            PlanEditorPage.init target session
+                |> updateWith PlanEditor GotPlanEditorMsg model
 
         Nothing ->
             ( NotFound session, Cmd.none )
@@ -190,6 +224,9 @@ toSession page =
         Settings settings ->
             SettingsPage.toSession settings
 
+        PlanEditor planEditor ->
+            PlanEditorPage.toSession planEditor
+
 
 putSession : Session -> Model -> Model
 putSession session page =
@@ -209,6 +246,9 @@ putSession session page =
         Settings settings ->
             Settings (Session.putSession session settings)
 
+        PlanEditor planEditor ->
+            PlanEditor (Session.putSession session planEditor)
+
 
 view : Model -> Document Msg
 view model =
@@ -216,15 +256,15 @@ view model =
         session =
             toSession model
 
-        notice =
-            Maybe.map (viewNotice session) (Session.notice session)
+        notices =
+            List.indexedMap (viewNotice session) (Session.notices session)
 
         viewPage page toMsg { title, content } =
-            Page.view session page notice { title = title, content = Html.map toMsg content }
+            Page.view session page notices { title = title, content = Html.map toMsg content }
     in
     case model of
         Redirect _ ->
-            Page.view session Page.Other notice BlankPage.view
+            Page.view session Page.Other notices BlankPage.view
 
         Home home ->
             viewPage Page.Home GotHomeMsg (HomePage.view home)
@@ -235,18 +275,21 @@ view model =
         Settings settings ->
             viewPage Page.Settings GotSettingsMsg (SettingsPage.view settings)
 
+        PlanEditor planEditor ->
+            viewPage Page.PlanEditor GotPlanEditorMsg (PlanEditorPage.view planEditor)
+
         _ ->
-            Page.view session Page.Other notice NotFoundPage.view
+            Page.view session Page.Other notices NotFoundPage.view
 
 
-viewNotice : Session -> Session.Notice -> Html Msg
-viewNotice session notice =
+viewNotice : Session -> Int -> Session.Notice -> Html Msg
+viewNotice session index notice =
     case notice of
         Session.SavedSettingsInvalid ->
             Notice.view
                 { tone = Notice.Error
                 , content = [ text "Saved settings aren't valid" ]
-                , onDismiss = DismissedNotice
+                , onDismiss = DismissedNotice index
                 }
 
         Session.SettingsMigrated ->
@@ -262,5 +305,21 @@ viewNotice session notice =
                         [ Html.Attributes.class "font-semibold underline" ]
                         [ text "here" ]
                     ]
-                , onDismiss = DismissedNotice
+                , onDismiss = DismissedNotice index
+                }
+
+        Session.SavedPlansInvalid storedPlans ->
+            Notice.view
+                { tone = Notice.Error
+                , content =
+                    [ text "Saved plans aren't valid and were removed, you can still download them "
+                    , DownloadLink.view
+                        { fileName = "workitout-invalid-plans.json"
+                        , mimeType = Persisted.mimeType
+                        , content = storedPlans
+                        }
+                        [ Html.Attributes.class "font-semibold underline" ]
+                        [ text "here" ]
+                    ]
+                , onDismiss = DismissedNotice index
                 }

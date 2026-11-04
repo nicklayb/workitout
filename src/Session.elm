@@ -1,7 +1,8 @@
-module Session exposing (Notice(..), Session, appConfig, currentDay, init, navKey, notice, putNotice, putSession, putSettings, putUrl, settings, url, urlChanged)
+module Session exposing (Notice(..), Session, addNotice, appConfig, currentDay, customPlans, dismissNotice, init, navKey, notices, putCustomPlans, putSession, putSettings, putUrl, settings, url, urlChanged)
 
 import AppConfig exposing (AppConfig)
 import Browser.Navigation as Nav
+import CustomPlans exposing (CustomPlans)
 import Resource exposing (Resource(..))
 import Route exposing (Route(..))
 import Settings exposing (Settings)
@@ -15,7 +16,8 @@ type alias Session =
     , appConfig : AppConfig
     , currentDay : Time.Weekday
     , settings : Settings
-    , notice : Maybe Notice
+    , customPlans : CustomPlans
+    , notices : List Notice
     }
 
 
@@ -24,6 +26,8 @@ type alias Session =
 type Notice
     = SavedSettingsInvalid
     | SettingsMigrated
+      -- Holds the unreadable content so the user can still download it.
+    | SavedPlansInvalid String
 
 
 type alias WithSession s =
@@ -66,7 +70,8 @@ init navKeyInput urlInput appConfigInput =
     , appConfig = appConfigInput
     , currentDay = weekday
     , settings = Settings.default
-    , notice = Nothing
+    , customPlans = CustomPlans.empty
+    , notices = []
     }
 
 
@@ -112,13 +117,32 @@ putSettings settingsInput session =
     { session | settings = settingsInput }
 
 
-{-| Application-wide notice to display, if any.
+{-| Application-wide notices to display, oldest first.
 -}
-notice : Session -> Maybe Notice
-notice session =
-    session.notice
+notices : Session -> List Notice
+notices session =
+    session.notices
 
 
-putNotice : Maybe Notice -> Session -> Session
-putNotice noticeInput session =
-    { session | notice = noticeInput }
+addNotice : Notice -> Session -> Session
+addNotice notice session =
+    { session | notices = session.notices ++ [ notice ] }
+
+
+{-| Removes the notice at the given position.
+-}
+dismissNotice : Int -> Session -> Session
+dismissNotice index session =
+    { session | notices = List.take index session.notices ++ List.drop (index + 1) session.notices }
+
+
+{-| Plans created by the user.
+-}
+customPlans : Session -> CustomPlans
+customPlans session =
+    session.customPlans
+
+
+putCustomPlans : CustomPlans -> Session -> Session
+putCustomPlans customPlansInput session =
+    { session | customPlans = customPlansInput }

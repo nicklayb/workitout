@@ -5,4 +5,5 @@ type alias AppConfig =
     { lastPlan : Maybe String
     , weekday : Int
     , settings : Maybe String
+    , customPlans : Maybe String
     }

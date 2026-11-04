@@ -1,4 +1,4 @@
-module Difficulty exposing (Difficulty(..), badgeClasses, default, dotClasses, fromString, jsonDecoder, label, toString, yamlDecoder)
+module Difficulty exposing (Difficulty(..), all, badgeClasses, default, dotClasses, fromString, jsonDecoder, label, toString, yamlDecoder)
 
 {-| Difficulty level of a plan, from `unset` (not specified) to `extreme`.
 -}
@@ -15,6 +15,13 @@ type Difficulty
     | Medium
     | Hard
     | Extreme
+
+
+{-| Every difficulty, from the easiest.
+-}
+all : List Difficulty
+all =
+    [ Unset, Easy, Medium, Hard, Extreme ]
 
 
 {-| Difficulty used when the field is absent or unknown.

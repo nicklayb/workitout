@@ -43,6 +43,12 @@ suite =
             [ test "an empty ziplist has no current item" <|
                 \_ -> Ziplist.current emptyZiplist |> Expect.equal Nothing
             ]
+        , describe "toList"
+            [ test "an empty ziplist gives an empty list" <|
+                \_ -> Ziplist.toList emptyZiplist |> Expect.equal []
+            , test "keeps the original order wherever the focus is" <|
+                \_ -> simpsonsZiplist |> Ziplist.next |> Ziplist.next |> Ziplist.toList |> Expect.equal simpsons
+            ]
         , describe "next"
             [ test "moves the focus forward" <|
                 \_ -> Ziplist.next simpsonsZiplist |> Ziplist.current |> Expect.equal (Just "Marge")
