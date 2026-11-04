@@ -31,6 +31,7 @@ type alias Model =
     , currentRound : Int
     , lastPlan : Maybe String
     , currentDay : Plan.Day
+    , isCompleted : Bool
     }
 
 
@@ -42,6 +43,7 @@ type Msg
     | ClosePlan
     | FileFetched (GitHub.HttpResponse String)
     | ChangeDay Plan.Day
+    | Restart
 
 
 init : Maybe String -> Maybe Plan.Day -> Session -> ( Model, Cmd Msg )
@@ -65,6 +67,7 @@ init maybePath maybeDay session =
             , currentRound = 0
             , lastPlan = session.appConfig.lastPlan
             , currentDay = currentDay
+            , isCompleted = False
             }
     in
     ( model, initCommand model )
@@ -145,28 +148,28 @@ update msg model =
             ( { model | plan = Resource.init, lastPlan = Nothing }, storeLastPlan Nothing )
 
         ChangeDay day ->
-            ( setCurrentDayPlay { model | currentDay = day }, Cmd.none )
+            ( resetRun { model | currentDay = day }, Cmd.none )
+
+        Restart ->
+            ( resetRun model, Cmd.none )
 
         Tick ->
             let
                 timer =
                     Timer.tick model.currentTimer
 
+                isCompleted =
+                    not (Timer.isRunning timer) && isWorkoutCompleted model.currentRound dayPlan
+
                 cmd =
                     if Timer.isRunning timer then
                         delay 1 Tick
 
+                    else if isCompleted then
+                        Cmd.none
+
                     else
-                        case model.dayPlan of
-                            Just { rounds } ->
-                                if rounds == model.currentRound then
-                                    Cmd.none
-
-                                else
-                                    send Start
-
-                            Nothing ->
-                                Cmd.none
+                        send Start
 
                 remaining =
                     Timer.remaining timer
@@ -185,7 +188,7 @@ update msg model =
                     else
                         Maybe.map Plan.daysMapNextStep model.dayPlan
             in
-            ( { model | currentTimer = timer, dayPlan = dayPlan }, Cmd.batch [ cmd, playSoundCmd ] )
+            ( { model | currentTimer = timer, dayPlan = dayPlan, isCompleted = isCompleted }, Cmd.batch [ cmd, playSoundCmd ] )
 
         FileFetched (Ok content) ->
             let
@@ -204,6 +207,19 @@ update msg model =
 
         _ ->
             ( model, Cmd.none )
+
+
+{-| Whether the last round has been fully performed, which is when the
+current round is the last one and the steps wrapped back to the first one.
+-}
+isWorkoutCompleted : Int -> Maybe Plan.DaysMap -> Bool
+isWorkoutCompleted currentRound maybeDayPlan =
+    case maybeDayPlan of
+        Just { rounds, steps } ->
+            currentRound >= rounds && Ziplist.isReset steps
+
+        Nothing ->
+            True
 
 
 currentStep : Model -> Maybe Step
@@ -337,19 +353,39 @@ viewClock model =
         button [ onClick Start, class (primaryButtonClasses ++ " px-10 py-3 text-lg") ] [ text "Start" ]
 
 
+viewCompleted : Model -> Html Msg
+viewCompleted model =
+    div [ class "flex flex-col items-center justify-center px-6 py-12 text-center sm:py-20" ]
+        [ span [ class "mb-1 text-xs font-medium tracking-wide text-gray-400 uppercase" ] [ text "Workout completed" ]
+        , h3 [ class "mb-3 text-3xl font-bold tracking-tight text-gray-800" ] [ text "Well done!" ]
+        , p [ class "mb-8 max-w-md text-gray-500" ]
+            [ text ("You completed all " ++ String.fromInt model.currentRound ++ " rounds of " ++ Plan.dayToString model.currentDay ++ "'s workout.") ]
+        , button [ onClick Restart, class (primaryButtonClasses ++ " px-10 py-3 text-lg") ] [ text "Restart" ]
+        ]
+
+
 viewCurrentStep : Model -> Html Msg
 viewCurrentStep model =
     case currentStep model of
         Just step ->
-            div [ class "flex flex-col items-center justify-center px-6 py-12 sm:py-20" ]
-                [ span [ class "mb-1 text-xs font-medium tracking-wide text-gray-400 uppercase" ] [ text (stepKindLabel step) ]
-                , h3 [ class "mb-3 text-center text-3xl font-bold tracking-tight text-gray-800" ] [ text (Plan.stepName step) ]
-                , viewStepDescription step
-                , viewClock model
-                ]
+            if model.isCompleted then
+                viewCompleted model
+
+            else
+                viewActiveStep step model
 
         Nothing ->
             p [ class "px-6 py-12 text-center text-gray-400" ] [ text "Pick a day with a workout to get started" ]
+
+
+viewActiveStep : Step -> Model -> Html Msg
+viewActiveStep step model =
+    div [ class "flex flex-col items-center justify-center px-6 py-12 sm:py-20" ]
+        [ span [ class "mb-1 text-xs font-medium tracking-wide text-gray-400 uppercase" ] [ text (stepKindLabel step) ]
+        , h3 [ class "mb-3 text-center text-3xl font-bold tracking-tight text-gray-800" ] [ text (Plan.stepName step) ]
+        , viewStepDescription step
+        , viewClock model
+        ]
 
 
 stepKindLabel : Step -> String
@@ -484,6 +520,13 @@ view model =
 putLoadedPlan : Plan -> Model -> Model
 putLoadedPlan plan model =
     setCurrentDayPlay { model | plan = Resource.loaded plan }
+
+
+{-| Puts the current day's workout back to its first step and round.
+-}
+resetRun : Model -> Model
+resetRun model =
+    setCurrentDayPlay { model | currentRound = 0, currentTimer = Timer.init 0, isCompleted = False }
 
 
 setCurrentDayPlay : Model -> Model
