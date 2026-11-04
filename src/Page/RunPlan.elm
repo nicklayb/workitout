@@ -10,8 +10,11 @@ import Json.Decode exposing (Decoder)
 import Plan exposing (Day(..), Plan, Step, stepSeconds)
 import Resource exposing (Resource)
 import Session exposing (Session)
+import Settings exposing (Settings)
 import Task
 import Timer exposing (Timer)
+import Ui.Button as Button
+import Ui.Card as Card
 import Ziplist exposing (Position(..))
 
 
@@ -119,10 +122,20 @@ update msg model =
 
         Start ->
             let
-                seconds =
+                isStartingRound =
+                    isAtRoundStart model.dayPlan
+
+                stepSeconds =
                     currentStep model
                         |> Maybe.map Plan.stepSeconds
                         |> Maybe.withDefault 0
+
+                seconds =
+                    if isStartingRound then
+                        stepSeconds + Settings.preRoundDelaySeconds (settings model)
+
+                    else
+                        stepSeconds
 
                 timer =
                     seconds
@@ -130,7 +143,7 @@ update msg model =
                         |> Timer.start
 
                 round =
-                    if Maybe.map (.steps >> Ziplist.isReset) model.dayPlan |> Maybe.withDefault False then
+                    if isStartingRound then
                         model.currentRound + 1
 
                     else
@@ -139,7 +152,7 @@ update msg model =
                 cmd =
                     Cmd.batch
                         [ delay 1 Tick
-                        , playSound "long_beep"
+                        , playSoundEffect model "long_beep"
                         ]
             in
             ( { model | currentTimer = timer, currentRound = round }, cmd )
@@ -165,7 +178,7 @@ update msg model =
                     if Timer.isRunning timer then
                         delay 1 Tick
 
-                    else if isCompleted then
+                    else if isCompleted || isWaitingForNextRound model dayPlan then
                         Cmd.none
 
                     else
@@ -176,7 +189,7 @@ update msg model =
 
                 playSoundCmd =
                     if remaining <= 5 then
-                        playSound "beep"
+                        playSoundEffect model "beep"
 
                     else
                         Cmd.none
@@ -222,6 +235,36 @@ isWorkoutCompleted currentRound maybeDayPlan =
             True
 
 
+{-| Whether the steps are back to the first one while the user asked to start
+each round manually.
+-}
+isWaitingForNextRound : Model -> Maybe Plan.DaysMap -> Bool
+isWaitingForNextRound model maybeDayPlan =
+    not (Settings.autoNextRound (settings model)) && isAtRoundStart maybeDayPlan
+
+
+isAtRoundStart : Maybe Plan.DaysMap -> Bool
+isAtRoundStart maybeDayPlan =
+    Maybe.map (.steps >> Ziplist.isReset) maybeDayPlan
+        |> Maybe.withDefault False
+
+
+{-| Plays a sound effect, unless the user disabled them.
+-}
+playSoundEffect : Model -> String -> Cmd msg
+playSoundEffect model sound =
+    if Settings.soundEffects (settings model) then
+        playSound sound
+
+    else
+        Cmd.none
+
+
+settings : Model -> Settings
+settings model =
+    Session.settings model.session
+
+
 currentStep : Model -> Maybe Step
 currentStep model =
     Maybe.andThen (.steps >> Ziplist.current) model.dayPlan
@@ -245,16 +288,6 @@ weekdayAbbreviationLength =
 skeletonRowCount : Int
 skeletonRowCount =
     5
-
-
-cardClasses : String
-cardClasses =
-    "rounded-2xl bg-white shadow-sm ring-1 ring-gray-200"
-
-
-primaryButtonClasses : String
-primaryButtonClasses =
-    "inline-flex cursor-pointer items-center justify-center rounded-full bg-pink-500 font-semibold text-white shadow-sm transition-colors hover:bg-pink-600"
 
 
 viewPlanHeader : Plan -> Html Msg
@@ -350,7 +383,18 @@ viewClock model =
         div [ class "text-8xl font-bold tracking-tight text-pink-500 tabular-nums sm:text-9xl" ] [ text (String.fromInt (Timer.remaining model.currentTimer)) ]
 
     else
-        button [ onClick Start, class (primaryButtonClasses ++ " px-10 py-3 text-lg") ] [ text "Start" ]
+        button [ onClick Start, class (Button.primaryClasses ++ " px-10 py-3 text-lg") ] [ text "Start" ]
+
+
+viewCompleted : Model -> Html Msg
+viewCompleted model =
+    div [ class "flex flex-col items-center justify-center px-6 py-12 text-center sm:py-20" ]
+        [ span [ class "mb-1 text-xs font-medium tracking-wide text-gray-400 uppercase" ] [ text "Workout completed" ]
+        , h3 [ class "mb-3 text-3xl font-bold tracking-tight text-gray-800" ] [ text "Well done!" ]
+        , p [ class "mb-8 max-w-md text-gray-500" ]
+            [ text ("You completed all " ++ String.fromInt model.currentRound ++ " rounds of " ++ Plan.dayToString model.currentDay ++ "'s workout.") ]
+        , button [ onClick Restart, class (Button.primaryClasses ++ " px-10 py-3 text-lg") ] [ text "Restart" ]
+        ]
 
 
 viewCompleted : Model -> Html Msg
@@ -432,11 +476,11 @@ viewWeek plan model =
 viewPlan : Plan -> Model -> Html Msg
 viewPlan plan model =
     div [ class "flex flex-col gap-6 lg:flex-row lg:items-start" ]
-        [ aside [ class (cardClasses ++ " p-3 lg:w-80 lg:shrink-0") ]
+        [ aside [ class (Card.classes ++ " p-3 lg:w-80 lg:shrink-0") ]
             [ viewWeek plan model
             , viewSteps model
             ]
-        , section [ class (cardClasses ++ " min-w-0 flex-1") ]
+        , section [ class (Card.classes ++ " min-w-0 flex-1") ]
             [ viewPlanHeader plan
             , viewCurrentStep model
             ]
@@ -479,9 +523,9 @@ viewSkeletonRow _ =
 viewLoading : Html Msg
 viewLoading =
     div [ class "flex animate-pulse flex-col gap-6 lg:flex-row lg:items-start" ]
-        [ div [ class (cardClasses ++ " space-y-1 p-3 lg:w-80 lg:shrink-0") ]
+        [ div [ class (Card.classes ++ " space-y-1 p-3 lg:w-80 lg:shrink-0") ]
             (div [ class "h-8 rounded-xl bg-gray-100" ] [] :: List.map viewSkeletonRow (List.range 1 skeletonRowCount))
-        , div [ class (cardClasses ++ " flex min-w-0 flex-1 flex-col items-center gap-4 px-6 py-20") ]
+        , div [ class (Card.classes ++ " flex min-w-0 flex-1 flex-col items-center gap-4 px-6 py-20") ]
             [ div [ class "h-6 w-48 rounded bg-gray-200" ] []
             , div [ class "h-4 w-64 rounded bg-gray-200" ] []
             , div [ class "h-12 w-36 rounded-full bg-gray-200" ] []
@@ -498,10 +542,10 @@ viewUploadPath : Maybe String -> Html Msg
 viewUploadPath maybeError =
     div [ class "mx-auto max-w-md" ]
         [ Maybe.map viewError maybeError |> Maybe.withDefault (text "")
-        , div [ class (cardClasses ++ " flex flex-col items-center px-6 py-10 text-center") ]
+        , div [ class (Card.classes ++ " flex flex-col items-center px-6 py-10 text-center") ]
             [ h2 [ class "text-2xl font-bold tracking-tight text-gray-800" ] [ text "Upload a plan" ]
             , p [ class "mt-2 mb-6 text-gray-500" ] [ text "Load a plan file from your device" ]
-            , label [ class (primaryButtonClasses ++ " px-8 py-2.5") ]
+            , label [ class (Button.primaryClasses ++ " px-8 py-2.5") ]
                 [ text "Upload"
                 , input [ type_ "file", on "change" (Json.Decode.map GotFile filesDecoder), class "hidden" ] []
                 ]

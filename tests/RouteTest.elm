@@ -37,6 +37,7 @@ routes =
     , RunPlan (Just "plans/duff.yml") Nothing
     , RunPlan Nothing (Just Wednesday)
     , RunPlan (Just "springfield/moe's tavern & grill.yml") (Just Sunday)
+    , Settings
     ]
 
 
@@ -52,6 +53,8 @@ suite =
                 \_ ->
                     Route.routeToString (RunPlan (Just "duff.yml") (Just Monday))
                         |> Expect.equal "/plans/run?day=monday&path=duff.yml"
+            , test "settings" <|
+                \_ -> Route.routeToString Settings |> Expect.equal "/settings"
             ]
         , describe "fromUrl"
             [ test "parses back every serialized route" <|

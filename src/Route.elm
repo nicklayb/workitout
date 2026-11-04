@@ -10,6 +10,7 @@ import Url.Parser.Query as Query
 type Route
     = Home
     | RunPlan (Maybe String) (Maybe Plan.Day)
+    | Settings
 
 
 parser : Parser (Route -> a) a
@@ -17,6 +18,7 @@ parser =
     oneOf
         [ Parser.map Home Parser.top
         , Parser.map RunPlan (s "plans" </> s "run" <?> Query.string "path" <?> Query.enum "day" Plan.dayEnum)
+        , Parser.map Settings (s "settings")
         ]
 
 
@@ -55,6 +57,9 @@ routeToString page =
                             dayParam ++ pathParam
                     in
                     ( [ "plans", "run" ], queryParams )
+
+                Settings ->
+                    ( [ "settings" ], [] )
     in
     "/" ++ UrlBuilder.relative pieces query
 

@@ -2,15 +2,17 @@ module Page exposing (Page(..), view, viewLoading)
 
 import Browser exposing (Document)
 import Html exposing (Html, a, div, header, main_, span, text)
-import Html.Attributes exposing (class, href)
+import Html.Attributes exposing (attribute, class, href)
 import Route
 import Session exposing (Session)
+import Ui.Icon as Icon
 
 
 type Page
     = Other
     | Home
     | RunPlan
+    | Settings
 
 
 appName : String
@@ -18,14 +20,17 @@ appName =
     "Workitout"
 
 
-{-| Wraps a page content into the shared layout: a top bar linking home (hidden on the home page, which has its own title) and the content area.
+{-| Wraps a page content into the shared layout: a top bar linking home (the
+name is hidden on the home page, which has its own title) and settings, the
+given application-wide `notice` and the content area.
 -}
-view : Session -> Page -> { title : String, content : Html msg } -> Document msg
-view _ page { title, content } =
+view : Session -> Page -> Maybe (Html msg) -> { title : String, content : Html msg } -> Document msg
+view _ page maybeNotice { title, content } =
     { title = title ++ " :: WorkItOut"
     , body =
         [ div [ class "flex min-h-screen flex-col bg-gray-50 text-gray-800 antialiased" ]
             [ viewTopBar page
+            , viewNotice maybeNotice
             , main_ [ class "flex-1" ] [ content ]
             , viewFooter
             ]
@@ -41,22 +46,67 @@ viewLoading =
         [ span [ class "animate-pulse text-gray-400" ] [ text "Loading…" ] ]
 
 
-viewTopBar : Page -> Html msg
-viewTopBar page =
-    case page of
-        Home ->
+viewNotice : Maybe (Html msg) -> Html msg
+viewNotice maybeNotice =
+    case maybeNotice of
+        Just notice ->
+            div [ class "mx-auto w-full max-w-6xl px-4 pt-4" ] [ notice ]
+
+        Nothing ->
             text ""
 
+
+viewTopBar : Page -> Html msg
+viewTopBar page =
+    header [ class (topBarClasses page) ]
+        [ div [ class "mx-auto flex max-w-6xl items-center justify-between px-4 py-3" ]
+            [ viewAppName page
+            , viewSettingsLink page
+            ]
+        ]
+
+
+topBarClasses : Page -> String
+topBarClasses page =
+    case page of
+        Home ->
+            ""
+
         _ ->
-            header [ class "border-b border-gray-200 bg-white" ]
-                [ div [ class "mx-auto flex max-w-6xl items-center px-4 py-3" ]
-                    [ a
-                        [ class "text-xl font-bold tracking-tight text-pink-500 transition-colors hover:text-pink-600"
-                        , href (Route.routeToString Route.Home)
-                        ]
-                        [ text appName ]
-                    ]
+            "border-b border-gray-200 bg-white"
+
+
+viewAppName : Page -> Html msg
+viewAppName page =
+    case page of
+        Home ->
+            span [] []
+
+        _ ->
+            a
+                [ class "text-xl font-bold tracking-tight text-pink-500 transition-colors hover:text-pink-600"
+                , href (Route.routeToString Route.Home)
                 ]
+                [ text appName ]
+
+
+viewSettingsLink : Page -> Html msg
+viewSettingsLink page =
+    let
+        stateClasses =
+            case page of
+                Settings ->
+                    "bg-pink-50 text-pink-600"
+
+                _ ->
+                    "text-gray-400 hover:bg-pink-50 hover:text-pink-600"
+    in
+    a
+        [ class ("flex size-10 items-center justify-center rounded-full transition-colors " ++ stateClasses)
+        , href (Route.routeToString Route.Settings)
+        , attribute "aria-label" "Settings"
+        ]
+        [ Icon.gear "size-6" ]
 
 
 viewFooter : Html msg
