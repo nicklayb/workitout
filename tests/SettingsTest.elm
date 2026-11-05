@@ -17,6 +17,8 @@ suite =
                 \_ -> Settings.soundEffects Settings.default |> Expect.equal True
             , test "moves to the next round automatically" <|
                 \_ -> Settings.autoNextRound Settings.default |> Expect.equal True
+            , test "keeps the screen awake" <|
+                \_ -> Settings.wakeLock Settings.default |> Expect.equal True
             , test "has no pre-round delay" <|
                 \_ -> Settings.preRoundDelaySeconds Settings.default |> Expect.equal 0
             ]
@@ -25,6 +27,8 @@ suite =
                 \_ -> Settings.default |> Settings.setSoundEffects False |> Settings.soundEffects |> Expect.equal False
             , test "setAutoNextRound" <|
                 \_ -> Settings.default |> Settings.setAutoNextRound False |> Settings.autoNextRound |> Expect.equal False
+            , test "setWakeLock" <|
+                \_ -> Settings.default |> Settings.setWakeLock False |> Settings.wakeLock |> Expect.equal False
             , test "setPreRoundDelay keeps a value within bounds" <|
                 \_ -> Settings.default |> Settings.setPreRoundDelay 15 |> Settings.preRoundDelaySeconds |> Expect.equal 15
             , test "setPreRoundDelay caps above one minute" <|

@@ -24,7 +24,9 @@ module Settings exposing
     , setEffortPlaylist
     , setPreRoundDelay
     , setSoundEffects
+    , setWakeLock
     , soundEffects
+    , wakeLock
     )
 
 {-| User preferences of the application. The type is opaque so every value
@@ -45,6 +47,7 @@ type Settings
         , breakMusic : BreakMusic
         , breakPlaylist : Playlist
         , dimmedEffortVolume : BoundedInt
+        , wakeLock : Bool
         }
 
 
@@ -120,6 +123,7 @@ default =
         , breakMusic = BreakFromPlaylist
         , breakPlaylist = defaultBreakPlaylist
         , dimmedEffortVolume = BoundedInt.init dimmedEffortVolumeBounds defaultDimmedEffortVolumePercent
+        , wakeLock = True
         }
 
 
@@ -193,6 +197,20 @@ dimmedEffortVolume (Settings settings) =
 dimmedEffortVolumePercent : Settings -> Int
 dimmedEffortVolumePercent settings =
     BoundedInt.value (dimmedEffortVolume settings)
+
+
+{-| Whether the screen is kept awake during a workout.
+-}
+wakeLock : Settings -> Bool
+wakeLock (Settings settings) =
+    settings.wakeLock
+
+
+{-| Enables or disables keeping the screen awake during a workout.
+-}
+setWakeLock : Bool -> Settings -> Settings
+setWakeLock isEnabled (Settings settings) =
+    Settings { settings | wakeLock = isEnabled }
 
 
 {-| Enables or disables sound effects.

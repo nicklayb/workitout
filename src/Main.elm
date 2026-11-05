@@ -22,6 +22,7 @@ import Settings.Storage as Storage
 import Ui.DownloadLink as DownloadLink
 import Ui.Notice as Notice
 import Url exposing (Url)
+import WakeLock
 
 
 type Model
@@ -176,12 +177,13 @@ update msg model =
             ( model, Cmd.none )
 
 
-{-| Opens the page of a route. The music of a workout never outlives its page.
+{-| Opens the page of a route. The music and wake lock of a workout never
+outlive its page.
 -}
 changeRouteTo : Maybe Route -> Model -> ( Model, Cmd Msg )
 changeRouteTo maybeRoute model =
     initPage maybeRoute model
-        |> Tuple.mapSecond (\cmd -> Cmd.batch [ Music.Port.stop, cmd ])
+        |> Tuple.mapSecond (\cmd -> Cmd.batch [ Music.Port.stop, WakeLock.release, cmd ])
 
 
 initPage : Maybe Route -> Model -> ( Model, Cmd Msg )

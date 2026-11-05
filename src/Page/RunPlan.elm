@@ -1,5 +1,6 @@
 port module Page.RunPlan exposing (Model, Msg, init, subscriptions, toSession, update, view)
 
+import ActiveSettings
 import Audius exposing (Track)
 import Cmd.Extra exposing (send)
 import CustomPlans
@@ -26,6 +27,7 @@ import Ui.Button as Button
 import Ui.Card as Card
 import Ui.Icon as Icon
 import Ui.IconButton as IconButton
+import WakeLock
 import Ziplist exposing (Position(..))
 
 
@@ -247,21 +249,22 @@ update msg model =
                     Cmd.batch
                         [ playSoundEffect model "long_beep"
                         , musicCmd
+                        , WakeLock.keepScreenAwake (Settings.wakeLock (settings model))
                         ]
             in
             ( { startedModel | currentTimer = timer, currentRound = round }, cmd )
 
         ClosePlan ->
             ( resetRun { model | plan = Resource.init, dayPlan = Nothing, lastPlan = Nothing }, storeLastPlan Nothing )
-                |> stopMusic
+                |> stopRun
 
         ChangeDay day ->
             ( resetRun { model | currentDay = day }, Cmd.none )
-                |> stopMusic
+                |> stopRun
 
         Restart ->
             ( resetRun model, Cmd.none )
-                |> stopMusic
+                |> stopRun
 
         GotMusicTracks channel result ->
             withMusic (Music.tracksFetched channel (Result.toMaybe result) model.music) model
@@ -318,7 +321,7 @@ update msg model =
             in
             ( { model | currentTimer = timer, dayPlan = dayPlan, isCompleted = isCompleted }, Cmd.batch [ cmd, playSoundCmd ] )
                 |> (if isCompleted then
-                        stopMusic
+                        stopRun
 
                     else
                         identity
@@ -343,15 +346,16 @@ update msg model =
             ( model, Cmd.none )
 
 
-{-| Silences the music, keeping the commands already produced.
+{-| Silences the music and lets the screen sleep, keeping the commands already
+produced.
 -}
-stopMusic : ( Model, Cmd Msg ) -> ( Model, Cmd Msg )
-stopMusic ( model, cmd ) =
+stopRun : ( Model, Cmd Msg ) -> ( Model, Cmd Msg )
+stopRun ( model, cmd ) =
     let
         ( stoppedModel, musicCmd ) =
             withMusic (Music.stop model.music) model
     in
-    ( stoppedModel, Cmd.batch [ cmd, musicCmd ] )
+    ( stoppedModel, Cmd.batch [ cmd, musicCmd, WakeLock.release ] )
 
 
 {-| Whether the last round has been fully performed, which is when the
@@ -687,8 +691,51 @@ viewPlan plan model =
         , section [ class (Card.classes ++ " min-w-0 flex-1") ]
             [ viewPlanHeader model.source plan
             , viewCurrentStep model
+            , viewActiveSettings (settings model)
             ]
         ]
+
+
+{-| Discreet footer of the timer card reminding the settings in effect. Hovering
+an indicator explains it.
+-}
+viewActiveSettings : Settings -> Html Msg
+viewActiveSettings currentSettings =
+    case ActiveSettings.fromSettings currentSettings of
+        [] ->
+            text ""
+
+        indicators ->
+            div [ class "flex flex-wrap items-center justify-center gap-4 border-t border-gray-100 px-6 py-3 text-gray-400" ]
+                (List.map viewIndicator indicators)
+
+
+viewIndicator : ActiveSettings.Indicator -> Html Msg
+viewIndicator indicator =
+    let
+        iconClasses =
+            "size-4"
+
+        ( description, content ) =
+            case indicator of
+                ActiveSettings.PreRoundDelay seconds ->
+                    ( String.fromInt seconds ++ " seconds added before each round"
+                    , [ Icon.clock iconClasses, span [ class "text-xs tabular-nums" ] [ text (String.fromInt seconds ++ "s") ] ]
+                    )
+
+                ActiveSettings.AutoNextRound ->
+                    ( "Moves to the next round automatically", [ Icon.arrowPath iconClasses ] )
+
+                ActiveSettings.SoundEffects ->
+                    ( "Sound effects enabled", [ Icon.speakerWave iconClasses ] )
+
+                ActiveSettings.Music ->
+                    ( "Music enabled", [ Icon.musicalNote iconClasses ] )
+
+                ActiveSettings.WakeLock ->
+                    ( "Keeps the screen awake", [ Icon.sun iconClasses ] )
+    in
+    span [ class "flex cursor-help items-center gap-1", title description, attribute "aria-label" description, attribute "role" "img" ] content
 
 
 viewPageContainer : List (Html Msg) -> Html Msg

@@ -41,6 +41,7 @@ type ImportStatus
 type Msg
     = ToggledSoundEffects Bool
     | ToggledAutoNextRound Bool
+    | ToggledWakeLock Bool
     | ChangedPreRoundDelay Int
     | SelectedEffortMusic EffortMusic
     | ChangedEffortPlaylist String
@@ -81,6 +82,9 @@ update msg model =
 
         ToggledAutoNextRound isEnabled ->
             applySettings (Settings.setAutoNextRound isEnabled (settings model)) model
+
+        ToggledWakeLock isEnabled ->
+            applySettings (Settings.setWakeLock isEnabled (settings model)) model
 
         ChangedPreRoundDelay seconds ->
             applySettings (Settings.setPreRoundDelay seconds (settings model)) model
@@ -190,6 +194,9 @@ viewSettings currentSettings =
         , SettingRow.view
             { title = "Extra pre-round delay", description = "Seconds added to the countdown starting each round." }
             (BoundedIntInput.view { label = "Extra pre-round delay", unit = "s", value = Settings.preRoundDelay currentSettings, onChange = ChangedPreRoundDelay })
+        , SettingRow.view
+            { title = "Wake lock", description = "Keep the screen awake during a workout, like a video does." }
+            (Toggle.view { label = "Wake lock", isOn = Settings.wakeLock currentSettings, onToggle = ToggledWakeLock })
         ]
 
 
