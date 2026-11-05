@@ -1,11 +1,14 @@
 module Fixtures exposing
-    ( authorEmail
+    ( audiusPlaylistJson
+    , authorEmail
     , authorGithub
     , authorName
     , breakDescription
     , breakSeconds
+    , breakTracks
     , duffPlanYaml
     , effortDescription
+    , effortTracks
     , firstEffortName
     , firstEffortSeconds
     , invalidYaml
@@ -13,6 +16,9 @@ module Fixtures exposing
     , planDescription
     , planMissingDescriptionYaml
     , planWithoutDifficultyYaml
+    , playlistHandle
+    , playlistSlug
+    , playlistUrl
     , remotePlanJson
     , remotePlanMissingFieldJson
     , remotePlansJson
@@ -254,4 +260,57 @@ planning:
       steps:
         - name: Donut lifts
           seconds: 40
+"""
+
+
+playlistHandle : String
+playlistHandle =
+    "besharps"
+
+
+playlistSlug : String
+playlistSlug =
+    "barbershop-hits"
+
+
+playlistUrl : String
+playlistUrl =
+    "https://audius.co/besharps/playlist/barbershop-hits"
+
+
+{-| Upbeat tracks, as decoded from the Audius API.
+-}
+effortTracks : List { id : String, title : String, artist : String, permalink : String }
+effortTracks =
+    [ { id = "babyOnBoard", title = "Baby on Board", artist = "The Be Sharps", permalink = "/besharps/baby-on-board" }
+    , { id = "monorail", title = "Monorail Song", artist = "Lyle Lanley", permalink = "/lanley/monorail-song" }
+    , { id = "spiderPig", title = "Spider Pig", artist = "Homer Simpson", permalink = "/homer/spider-pig" }
+    ]
+
+
+{-| Calm tracks, as decoded from the Audius API.
+-}
+breakTracks : List { id : String, title : String, artist : String, permalink : String }
+breakTracks =
+    [ { id = "jazzman", title = "Jazzman", artist = "Bleeding Gums Murphy", permalink = "/bleedinggums/jazzman" }
+    , { id = "sadSax", title = "Sax on the Beach", artist = "Lisa Simpson", permalink = "/lisa/sax-on-the-beach" }
+    ]
+
+
+{-| Response of the playlist endpoint: one streamable track, one gated track,
+one not streamable track and one without the optional flags.
+-}
+audiusPlaylistJson : String
+audiusPlaylistJson =
+    """
+{ "data": [ { "playlist_name": "Barbershop hits", "tracks": [
+  { "id": "babyOnBoard", "title": "Baby on Board", "permalink": "/besharps/baby-on-board",
+    "is_streamable": true, "is_stream_gated": false, "user": { "name": "The Be Sharps" } },
+  { "id": "gated", "title": "Bart's Secret Song", "permalink": "/bart/secret",
+    "is_streamable": true, "is_stream_gated": true, "user": { "name": "Bart Simpson" } },
+  { "id": "offline", "title": "Flaming Moe", "permalink": "/moe/flaming-moe",
+    "is_streamable": false, "is_stream_gated": false, "user": { "name": "Moe Szyslak" } },
+  { "id": "monorail", "title": "Monorail Song", "permalink": "/lanley/monorail-song",
+    "is_stream_gated": null, "user": { "name": "Lyle Lanley" } }
+] } ] }
 """

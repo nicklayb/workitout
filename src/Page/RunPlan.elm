@@ -1,15 +1,20 @@
-port module Page.RunPlan exposing (Model, Msg, init, toSession, update, view)
+port module Page.RunPlan exposing (Model, Msg, init, subscriptions, toSession, update, view)
 
+import Audius exposing (Track)
 import Cmd.Extra exposing (delay, send)
 import CustomPlans
 import File exposing (File)
 import GitHub
 import Html exposing (Html, a, aside, button, div, h2, h3, input, label, li, p, section, span, text, ul)
-import Html.Attributes exposing (attribute, class, href, title, type_)
+import Html.Attributes exposing (attribute, class, href, rel, target, title, type_)
 import Html.Events exposing (on, onClick)
+import Http
 import Json.Decode exposing (Decoder)
+import Music
+import Music.Port
 import Plan exposing (Day(..), Plan, Step, stepSeconds)
 import PlanDraft.Yaml
+import Random
 import Resource exposing (Resource)
 import Route exposing (PlanSource(..))
 import Session exposing (Session)
@@ -19,6 +24,7 @@ import Timer exposing (Timer)
 import Ui.Button as Button
 import Ui.Card as Card
 import Ui.Icon as Icon
+import Ui.IconButton as IconButton
 import Ziplist exposing (Position(..))
 
 
@@ -39,6 +45,7 @@ type alias Model =
     , lastPlan : Maybe String
     , currentDay : Plan.Day
     , isCompleted : Bool
+    , music : Music.Model
     }
 
 
@@ -51,6 +58,12 @@ type Msg
     | FileFetched (GitHub.HttpResponse String)
     | ChangeDay Plan.Day
     | Restart
+    | GotMusicTracks Music.Channel (Result Http.Error (List Track))
+    | GotMusicSeed Random.Seed
+    | MusicTrackEnded String
+    | MusicTrackFailed String
+    | ClickedMusicPlayPause
+    | ClickedMusicNext
 
 
 init : PlanSource -> Maybe Plan.Day -> Session -> ( Model, Cmd Msg )
@@ -75,14 +88,51 @@ init source maybeDay session =
             , lastPlan = session.appConfig.lastPlan
             , currentDay = currentDay
             , isCompleted = False
+            , music = Music.init (Session.settings session)
             }
     in
     case source of
         Custom customId ->
-            ( loadCustomPlan customId model, Cmd.none )
+            ( loadCustomPlan customId model, initMusicCommand session )
 
         _ ->
-            ( model, initCommand model )
+            ( model, Cmd.batch [ initCommand model, initMusicCommand session ] )
+
+
+{-| Fetches the tracks of the playlists in use and a seed to shuffle them.
+-}
+initMusicCommand : Session -> Cmd Msg
+initMusicCommand session =
+    Music.playlistsToFetch (Session.settings session)
+        |> List.map (\( channel, playlist ) -> Audius.fetchPlaylistTracks (GotMusicTracks channel) playlist)
+        |> (::) (Random.generate GotMusicSeed Random.independentSeed)
+        |> Cmd.batch
+
+
+{-| Listens to the audio player.
+-}
+subscriptions : Model -> Sub Msg
+subscriptions _ =
+    Sub.batch
+        [ Music.Port.trackEnded MusicTrackEnded
+        , Music.Port.trackFailed MusicTrackFailed
+        ]
+
+
+{-| Applies a change of the music, sending its commands to the audio player.
+-}
+withMusic : ( Music.Model, List Music.Command ) -> Model -> ( Model, Cmd Msg )
+withMusic ( music, commands ) model =
+    ( { model | music = music }, Music.Port.run commands )
+
+
+stepKind : Step -> Music.StepKind
+stepKind step =
+    if Plan.isBreakStep step then
+        Music.BreakStep
+
+    else
+        Music.EffortStep
 
 
 {-| Loads one of the user's plans, which are already in the session.
@@ -172,22 +222,52 @@ update msg model =
                     else
                         model.currentRound
 
+                ( startedModel, musicCmd ) =
+                    case currentStep model of
+                        Just step ->
+                            withMusic (Music.enterStep (settings model) (stepKind step) model.music) model
+
+                        Nothing ->
+                            ( model, Cmd.none )
+
                 cmd =
                     Cmd.batch
                         [ delay 1 Tick
                         , playSoundEffect model "long_beep"
+                        , musicCmd
                         ]
             in
-            ( { model | currentTimer = timer, currentRound = round }, cmd )
+            ( { startedModel | currentTimer = timer, currentRound = round }, cmd )
 
         ClosePlan ->
             ( { model | plan = Resource.init, lastPlan = Nothing }, storeLastPlan Nothing )
+                |> stopMusic
 
         ChangeDay day ->
             ( resetRun { model | currentDay = day }, Cmd.none )
+                |> stopMusic
 
         Restart ->
             ( resetRun model, Cmd.none )
+                |> stopMusic
+
+        GotMusicTracks channel result ->
+            withMusic (Music.tracksFetched channel (Result.toMaybe result) model.music) model
+
+        GotMusicSeed seed ->
+            ( { model | music = Music.seed seed model.music }, Cmd.none )
+
+        MusicTrackEnded url ->
+            withMusic (Music.trackEnded url model.music) model
+
+        MusicTrackFailed url ->
+            withMusic (Music.trackFailed url model.music) model
+
+        ClickedMusicPlayPause ->
+            withMusic (Music.togglePause model.music) model
+
+        ClickedMusicNext ->
+            withMusic (Music.next model.music) model
 
         Tick ->
             let
@@ -225,6 +305,12 @@ update msg model =
                         Maybe.map Plan.daysMapNextStep model.dayPlan
             in
             ( { model | currentTimer = timer, dayPlan = dayPlan, isCompleted = isCompleted }, Cmd.batch [ cmd, playSoundCmd ] )
+                |> (if isCompleted then
+                        stopMusic
+
+                    else
+                        identity
+                   )
 
         FileFetched (Ok content) ->
             let
@@ -243,6 +329,17 @@ update msg model =
 
         _ ->
             ( model, Cmd.none )
+
+
+{-| Silences the music, keeping the commands already produced.
+-}
+stopMusic : ( Model, Cmd Msg ) -> ( Model, Cmd Msg )
+stopMusic ( model, cmd ) =
+    let
+        ( stoppedModel, musicCmd ) =
+            withMusic (Music.stop model.music) model
+    in
+    ( stoppedModel, Cmd.batch [ cmd, musicCmd ] )
 
 
 {-| Whether the last round has been fully performed, which is when the
@@ -472,6 +569,58 @@ viewActiveStep step model =
         , h3 [ class "mb-3 text-center text-3xl font-bold tracking-tight text-gray-800" ] [ text (Plan.stepName step) ]
         , viewStepDescription step
         , viewClock model
+        , viewMusic (Music.status model.music)
+        ]
+
+
+viewMusic : Music.Status -> Html Msg
+viewMusic status =
+    case status of
+        Music.Silent ->
+            text ""
+
+        Music.LoadingTracks ->
+            viewMusicMessage "Loading music…"
+
+        Music.Unavailable ->
+            viewMusicMessage "The playlist couldn't be loaded"
+
+        Music.Playing track ->
+            viewMusicBar { track = track, isPaused = False }
+
+        Music.Paused track ->
+            viewMusicBar { track = track, isPaused = True }
+
+
+viewMusicMessage : String -> Html Msg
+viewMusicMessage message =
+    p [ class "mt-8 text-sm text-gray-400" ] [ text message ]
+
+
+viewMusicBar : { track : Track, isPaused : Bool } -> Html Msg
+viewMusicBar { track, isPaused } =
+    let
+        ( playPauseLabel, playPauseIcon ) =
+            if isPaused then
+                ( "Play music", Icon.play "size-5" )
+
+            else
+                ( "Pause music", Icon.pause "size-5" )
+    in
+    div [ class "mt-8 flex w-full max-w-md items-center gap-3 rounded-xl bg-gray-50 px-4 py-2" ]
+        [ Icon.musicalNote "size-5 shrink-0 text-pink-500"
+        , a
+            [ href (Audius.pageUrl track)
+            , target "_blank"
+            , rel "noopener noreferrer"
+            , title "Open on Audius"
+            , class "flex min-w-0 flex-1 flex-col text-left transition-colors hover:text-pink-600"
+            ]
+            [ span [ class "truncate text-sm font-medium text-gray-800" ] [ text track.title ]
+            , span [ class "truncate text-xs text-gray-400" ] [ text track.artist ]
+            ]
+        , IconButton.view { label = playPauseLabel, isDisabled = False, onPress = ClickedMusicPlayPause } playPauseIcon
+        , IconButton.view { label = "Next track", isDisabled = False, onPress = ClickedMusicNext } (Icon.forward "size-5")
         ]
 
 

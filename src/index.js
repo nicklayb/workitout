@@ -39,3 +39,42 @@ app.ports.playSound.subscribe(function(message) {
   const audio = new Audio(`/sounds/${message}.mp3`)
   audio.play()
 });
+
+// Background music: a single audio element, so the user's click on Start
+// unlocks playback for every later track. The position of the track left by
+// each channel is kept to resume it when the channel plays it again.
+const music = new Audio()
+const savedTrackByChannel = {}
+let playingTrack = null
+
+function playMusic({ channel, url, volume }) {
+  music.volume = volume
+  if (playingTrack === null || playingTrack.url !== url) {
+    if (playingTrack !== null) {
+      savedTrackByChannel[playingTrack.channel] = { url: playingTrack.url, time: music.currentTime }
+    }
+    const savedTrack = savedTrackByChannel[channel]
+    music.src = url
+    if (savedTrack && savedTrack.url === url) {
+      music.currentTime = savedTrack.time
+    }
+  }
+  playingTrack = { channel, url }
+  music.play().catch(function() {})
+}
+
+music.addEventListener("ended", function() {
+  playingTrack && app.ports.musicTrackEnded.send(playingTrack.url)
+})
+
+music.addEventListener("error", function() {
+  playingTrack && app.ports.musicTrackFailed.send(playingTrack.url)
+})
+
+app.ports.controlMusic.subscribe(function(command) {
+  if (command.action === "play") {
+    playMusic(command)
+  } else {
+    music.pause()
+  }
+})
