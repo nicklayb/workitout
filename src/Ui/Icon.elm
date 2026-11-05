@@ -1,7 +1,7 @@
-module Ui.Icon exposing (chevronDown, chevronUp, fork, gear, pencil)
+module Ui.Icon exposing (chevronDown, chevronUp, fork, forward, gear, musicalNote, pause, pencil, play)
 
 {-| Inline SVG outline icons, drawn with `currentColor` so they follow the text
-color and sized through the given classes. The gear, chevron and pencil paths come
+color and sized through the given classes. The gear, chevron, pencil and media paths come
 from Heroicons (MIT license).
 -}
 
@@ -73,3 +73,31 @@ chevronUp =
 chevronDown : String -> Html msg
 chevronDown =
     outline [ "m19.5 8.25-7.5 7.5-7.5-7.5" ]
+
+
+{-| Play icon, used to resume the music.
+-}
+play : String -> Html msg
+play =
+    outline [ "M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 0 1 0 1.972l-11.54 6.347a1.125 1.125 0 0 1-1.667-.986V5.653Z" ]
+
+
+{-| Pause icon, used to pause the music.
+-}
+pause : String -> Html msg
+pause =
+    outline [ "M15.75 5.25v13.5m-7.5-13.5v13.5" ]
+
+
+{-| Forward icon, used to skip to the next track.
+-}
+forward : String -> Html msg
+forward =
+    outline [ "M3 8.689c0-.864.933-1.406 1.683-.977l7.108 4.061a1.125 1.125 0 0 1 0 1.954l-7.108 4.061A1.125 1.125 0 0 1 3 16.811V8.69ZM12.75 8.689c0-.864.933-1.406 1.683-.977l7.108 4.061a1.125 1.125 0 0 1 0 1.954l-7.108 4.061a1.125 1.125 0 0 1-1.683-.977V8.69Z" ]
+
+
+{-| Musical note icon, shown next to the playing track.
+-}
+musicalNote : String -> Html msg
+musicalNote =
+    outline [ "m9 9 10.5-3m0 6.553v3.75a2.25 2.25 0 0 1-1.632 2.163l-1.32.377a1.803 1.803 0 1 1-.99-3.467l2.31-.66a2.25 2.25 0 0 0 1.632-2.163Zm0 0V2.25L9 5.25v10.303m0 0v3.75a2.25 2.25 0 0 1-1.632 2.163l-1.32.377a1.803 1.803 0 0 1-.99-3.467l2.31-.66A2.25 2.25 0 0 0 9 15.553Z" ]

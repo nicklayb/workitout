@@ -17,9 +17,10 @@ To introduce a new version:
 
 -}
 
+import Audius.Playlist as Playlist exposing (Playlist)
 import Json.Decode as Decode exposing (Decoder)
 import Json.Encode as Encode
-import Settings exposing (Settings)
+import Settings exposing (BreakMusic(..), EffortMusic(..), Settings)
 
 
 {-| Outcome of a successful decoding: either the payload already was at the
@@ -38,11 +39,38 @@ type alias Version1 =
     }
 
 
+type alias Version2 =
+    { soundEffects : Bool
+    , autoNextRound : Bool
+    , preRoundDelaySeconds : Int
+    , effortMusic : EffortMusic
+    , effortPlaylist : Playlist
+    , breakMusic : BreakMusic
+    , breakPlaylist : Playlist
+    , dimmedEffortVolumePercent : Int
+    }
+
+
 {-| Version written by `encode`.
 -}
 currentVersion : Int
 currentVersion =
-    1
+    2
+
+
+effortMusicKeys : List ( EffortMusic, String )
+effortMusicKeys =
+    [ ( EffortSilent, "none" )
+    , ( EffortFromPlaylist, "playlist" )
+    ]
+
+
+breakMusicKeys : List ( BreakMusic, String )
+breakMusicKeys =
+    [ ( BreakSilent, "none" )
+    , ( BreakDimmedEffort, "dimmedEffort" )
+    , ( BreakFromPlaylist, "playlist" )
+    ]
 
 
 jsonIndentation : Int
@@ -73,7 +101,23 @@ encode settings =
         , ( "soundEffects", Encode.bool (Settings.soundEffects settings) )
         , ( "autoNextRound", Encode.bool (Settings.autoNextRound settings) )
         , ( "preRoundDelaySeconds", Encode.int (Settings.preRoundDelaySeconds settings) )
+        , ( "effortMusic", encodeKey effortMusicKeys (Settings.effortMusic settings) )
+        , ( "effortPlaylistUrl", Encode.string (Playlist.toUrl (Settings.effortPlaylist settings)) )
+        , ( "breakMusic", encodeKey breakMusicKeys (Settings.breakMusic settings) )
+        , ( "breakPlaylistUrl", Encode.string (Playlist.toUrl (Settings.breakPlaylist settings)) )
+        , ( "dimmedEffortVolumePercent", Encode.int (Settings.dimmedEffortVolumePercent settings) )
         ]
+
+
+{-| Encodes a value as its key in `keys`.
+-}
+encodeKey : List ( a, String ) -> a -> Encode.Value
+encodeKey keys value =
+    keys
+        |> List.filter (\( candidate, _ ) -> candidate == value)
+        |> List.head
+        |> Maybe.map (Tuple.second >> Encode.string)
+        |> Maybe.withDefault Encode.null
 
 
 {-| Encodes the settings at the current version into an indented JSON string.
@@ -104,7 +148,10 @@ versionDecoder version =
         settingsDecoder =
             case version of
                 1 ->
-                    Decode.map fromVersion1 version1Decoder
+                    Decode.map (migrateVersion1To2 >> fromVersion2) version1Decoder
+
+                2 ->
+                    Decode.map fromVersion2 version2Decoder
 
                 _ ->
                     Decode.fail ("Unsupported settings version " ++ String.fromInt version)
@@ -129,9 +176,77 @@ version1Decoder =
         (Decode.field "preRoundDelaySeconds" Decode.int)
 
 
-fromVersion1 : Version1 -> Settings
-fromVersion1 version1 =
+{-| Version 1 had no music: the default music settings are used.
+-}
+migrateVersion1To2 : Version1 -> Version2
+migrateVersion1To2 version1 =
+    { soundEffects = version1.soundEffects
+    , autoNextRound = version1.autoNextRound
+    , preRoundDelaySeconds = version1.preRoundDelaySeconds
+    , effortMusic = Settings.effortMusic Settings.default
+    , effortPlaylist = Settings.effortPlaylist Settings.default
+    , breakMusic = Settings.breakMusic Settings.default
+    , breakPlaylist = Settings.breakPlaylist Settings.default
+    , dimmedEffortVolumePercent = Settings.dimmedEffortVolumePercent Settings.default
+    }
+
+
+version2Decoder : Decoder Version2
+version2Decoder =
+    Decode.succeed Version2
+        |> andMap (Decode.field "soundEffects" Decode.bool)
+        |> andMap (Decode.field "autoNextRound" Decode.bool)
+        |> andMap (Decode.field "preRoundDelaySeconds" Decode.int)
+        |> andMap (Decode.field "effortMusic" (keyDecoder effortMusicKeys))
+        |> andMap (Decode.field "effortPlaylistUrl" playlistDecoder)
+        |> andMap (Decode.field "breakMusic" (keyDecoder breakMusicKeys))
+        |> andMap (Decode.field "breakPlaylistUrl" playlistDecoder)
+        |> andMap (Decode.field "dimmedEffortVolumePercent" Decode.int)
+
+
+andMap : Decoder a -> Decoder (a -> b) -> Decoder b
+andMap =
+    Decode.map2 (|>)
+
+
+{-| Decodes a key of `keys` into its value, failing on unknown keys.
+-}
+keyDecoder : List ( a, String ) -> Decoder a
+keyDecoder keys =
+    Decode.string
+        |> Decode.andThen
+            (\key ->
+                case List.filter (\( _, candidate ) -> candidate == key) keys of
+                    ( value, _ ) :: _ ->
+                        Decode.succeed value
+
+                    [] ->
+                        Decode.fail ("Unknown key " ++ key)
+            )
+
+
+playlistDecoder : Decoder Playlist
+playlistDecoder =
+    Decode.string
+        |> Decode.andThen
+            (\url ->
+                case Playlist.fromUrl url of
+                    Just playlist ->
+                        Decode.succeed playlist
+
+                    Nothing ->
+                        Decode.fail ("Not an Audius playlist URL: " ++ url)
+            )
+
+
+fromVersion2 : Version2 -> Settings
+fromVersion2 version2 =
     Settings.default
-        |> Settings.setSoundEffects version1.soundEffects
-        |> Settings.setAutoNextRound version1.autoNextRound
-        |> Settings.setPreRoundDelay version1.preRoundDelaySeconds
+        |> Settings.setSoundEffects version2.soundEffects
+        |> Settings.setAutoNextRound version2.autoNextRound
+        |> Settings.setPreRoundDelay version2.preRoundDelaySeconds
+        |> Settings.setEffortMusic version2.effortMusic
+        |> Settings.setEffortPlaylist version2.effortPlaylist
+        |> Settings.setBreakMusic version2.breakMusic
+        |> Settings.setBreakPlaylist version2.breakPlaylist
+        |> Settings.setDimmedEffortVolume version2.dimmedEffortVolumePercent

@@ -7,6 +7,7 @@ import CustomPlans
 import CustomPlans.Storage as CustomPlansStorage
 import Html exposing (Html, text)
 import Html.Attributes
+import Music.Port
 import Page
 import Page.Blank as BlankPage
 import Page.Errors.NotFound as NotFoundPage
@@ -58,6 +59,9 @@ main =
 subscriptions : Model -> Sub Msg
 subscriptions model =
     case model of
+        RunPlan runPlan ->
+            Sub.map GotRunPlanMsg (RunPlanPage.subscriptions runPlan)
+
         _ ->
             Sub.none
 
@@ -172,8 +176,16 @@ update msg model =
             ( model, Cmd.none )
 
 
+{-| Opens the page of a route. The music of a workout never outlives its page.
+-}
 changeRouteTo : Maybe Route -> Model -> ( Model, Cmd Msg )
 changeRouteTo maybeRoute model =
+    initPage maybeRoute model
+        |> Tuple.mapSecond (\cmd -> Cmd.batch [ Music.Port.stop, cmd ])
+
+
+initPage : Maybe Route -> Model -> ( Model, Cmd Msg )
+initPage maybeRoute model =
     let
         session =
             toSession model
