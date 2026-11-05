@@ -39,8 +39,19 @@ start timer =
     { timer | status = Running }
 
 
+{-| Advances a running timer by one second. Other timers are left unchanged.
+-}
 tick : Timer -> Timer
 tick timer =
+    if isRunning timer then
+        tickRunning timer
+
+    else
+        timer
+
+
+tickRunning : Timer -> Timer
+tickRunning timer =
     let
         newCurrent =
             timer.current + 1
