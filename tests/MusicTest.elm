@@ -29,6 +29,13 @@ withBreakMusic breakMusic =
         |> Settings.setDimmedEffortVolume dimmedPercent
 
 
+{-| Settings with a playlist for efforts and another one for breaks.
+-}
+playlistSettings : Settings
+playlistSettings =
+    withBreakMusic BreakFromPlaylist
+
+
 {-| Music with both playlists loaded.
 -}
 loadedMusic : Settings -> Music.Model
@@ -98,11 +105,16 @@ suite : Test
 suite =
     describe "Music"
         [ describe "playlistsToFetch"
-            [ test "fetches both playlists by default" <|
+            [ test "fetches both playlists when breaks have their own" <|
+                \_ ->
+                    Music.playlistsToFetch playlistSettings
+                        |> List.map Tuple.first
+                        |> Expect.equal [ EffortChannel, BreakChannel ]
+            , test "only fetches the effort playlist by default" <|
                 \_ ->
                     Music.playlistsToFetch Settings.default
                         |> List.map Tuple.first
-                        |> Expect.equal [ EffortChannel, BreakChannel ]
+                        |> Expect.equal [ EffortChannel ]
             , test "only fetches the effort playlist when breaks dim it" <|
                 \_ ->
                     Music.playlistsToFetch (withBreakMusic BreakDimmedEffort)
@@ -116,7 +128,7 @@ suite =
         , describe "enterStep"
             [ test "plays an effort track at full volume" <|
                 \_ ->
-                    Music.enterStep Settings.default EffortStep (loadedMusic Settings.default)
+                    Music.enterStep playlistSettings EffortStep (loadedMusic playlistSettings)
                         |> Tuple.second
                         |> Expect.all
                             [ playedUrl >> isTrackOf Fixtures.effortTracks >> Expect.equal True
@@ -126,7 +138,7 @@ suite =
                 \_ ->
                     let
                         ( _, commands ) =
-                            runSteps Settings.default [ EffortStep, EffortStep ] (loadedMusic Settings.default)
+                            runSteps playlistSettings [ EffortStep, EffortStep ] (loadedMusic playlistSettings)
                     in
                     case List.map playedUrl commands of
                         [ first, second ] ->
@@ -136,7 +148,7 @@ suite =
                             Expect.fail "Expected two steps"
             , test "plays a break track during a break" <|
                 \_ ->
-                    runSteps Settings.default [ EffortStep, BreakStep ] (loadedMusic Settings.default)
+                    runSteps playlistSettings [ EffortStep, BreakStep ] (loadedMusic playlistSettings)
                         |> Tuple.second
                         |> List.drop 1
                         |> List.concat
@@ -146,7 +158,7 @@ suite =
                             ]
             , test "goes back to the effort track after a break" <|
                 \_ ->
-                    case runSteps Settings.default [ EffortStep, BreakStep, EffortStep ] (loadedMusic Settings.default) |> Tuple.second of
+                    case runSteps playlistSettings [ EffortStep, BreakStep, EffortStep ] (loadedMusic playlistSettings) |> Tuple.second of
                         [ first, _, third ] ->
                             playedUrl third |> Expect.equal (playedUrl first)
 
@@ -189,14 +201,14 @@ suite =
                         |> Expect.equal [ Pause ]
             , test "waits for the tracks while they load" <|
                 \_ ->
-                    Music.enterStep Settings.default EffortStep (Music.init Settings.default)
+                    Music.enterStep playlistSettings EffortStep (Music.init playlistSettings)
                         |> Tuple.mapFirst Music.status
                         |> Expect.equal ( LoadingTracks, [ Pause ] )
             ]
         , describe "tracksFetched"
             [ test "starts the tracks the current step waits for" <|
                 \_ ->
-                    Music.enterStep Settings.default EffortStep (Music.init Settings.default)
+                    Music.enterStep playlistSettings EffortStep (Music.init playlistSettings)
                         |> Tuple.first
                         |> Music.tracksFetched EffortChannel (Just Fixtures.effortTracks)
                         |> Tuple.second
@@ -205,14 +217,14 @@ suite =
                         |> Expect.equal True
             , test "doesn't play the tracks of another channel" <|
                 \_ ->
-                    Music.enterStep Settings.default EffortStep (Music.init Settings.default)
+                    Music.enterStep playlistSettings EffortStep (Music.init playlistSettings)
                         |> Tuple.first
                         |> Music.tracksFetched BreakChannel (Just Fixtures.breakTracks)
                         |> Tuple.second
                         |> Expect.equal []
             , test "reports a playlist that failed to load" <|
                 \_ ->
-                    Music.enterStep Settings.default EffortStep (Music.init Settings.default)
+                    Music.enterStep playlistSettings EffortStep (Music.init playlistSettings)
                         |> Tuple.first
                         |> Music.tracksFetched EffortChannel Nothing
                         |> Tuple.first
@@ -222,25 +234,25 @@ suite =
         , describe "controls"
             [ test "pausing pauses the player" <|
                 \_ ->
-                    playingEffort Settings.default
+                    playingEffort playlistSettings
                         |> Tuple.first
                         |> Music.togglePause
                         |> Tuple.second
                         |> Expect.equal [ Pause ]
             , test "a pause lasts across steps" <|
                 \_ ->
-                    playingEffort Settings.default
+                    playingEffort playlistSettings
                         |> Tuple.first
                         |> Music.togglePause
                         |> Tuple.first
-                        |> Music.enterStep Settings.default BreakStep
+                        |> Music.enterStep playlistSettings BreakStep
                         |> Tuple.second
                         |> Expect.equal [ Pause ]
             , test "resuming plays the same track again" <|
                 \_ ->
                     let
                         ( music, url ) =
-                            playingEffort Settings.default
+                            playingEffort playlistSettings
                     in
                     music
                         |> Music.togglePause
@@ -253,7 +265,7 @@ suite =
                 \_ ->
                     let
                         ( music, url ) =
-                            playingEffort Settings.default
+                            playingEffort playlistSettings
 
                         nextUrl =
                             Music.next music |> Tuple.second |> playedUrl
@@ -265,7 +277,7 @@ suite =
                         ()
             , test "stop silences the music" <|
                 \_ ->
-                    playingEffort Settings.default
+                    playingEffort playlistSettings
                         |> Tuple.first
                         |> Music.stop
                         |> Tuple.mapFirst Music.status
@@ -276,7 +288,7 @@ suite =
                 \_ ->
                     let
                         ( music, url ) =
-                            playingEffort Settings.default
+                            playingEffort playlistSettings
                     in
                     Music.trackEnded url music
                         |> Tuple.second
@@ -284,7 +296,7 @@ suite =
                         |> Expect.all [ Expect.notEqual (Just url), isTrackOf Fixtures.effortTracks >> Expect.equal True ]
             , test "the end of a track no longer playing is ignored" <|
                 \_ ->
-                    playingEffort Settings.default
+                    playingEffort playlistSettings
                         |> Tuple.first
                         |> Music.trackEnded "https://audius.co/moe/flaming-moe"
                         |> Tuple.second
@@ -293,12 +305,12 @@ suite =
                 \_ ->
                     let
                         singleTrackMusic =
-                            Music.init Settings.default
+                            Music.init playlistSettings
                                 |> Music.tracksFetched EffortChannel (Just (List.take 1 Fixtures.effortTracks))
                                 |> Tuple.first
 
                         ( music, commands ) =
-                            Music.enterStep Settings.default EffortStep singleTrackMusic
+                            Music.enterStep playlistSettings EffortStep singleTrackMusic
                     in
                     Music.trackFailed (playedUrl commands |> Maybe.withDefault "") music
                         |> Tuple.mapFirst Music.status

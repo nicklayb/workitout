@@ -19,6 +19,10 @@ suite =
                 \_ -> Settings.autoNextRound Settings.default |> Expect.equal True
             , test "keeps the screen awake" <|
                 \_ -> Settings.wakeLock Settings.default |> Expect.equal True
+            , test "dims the effort music during breaks, at 30%" <|
+                \_ ->
+                    ( Settings.breakMusic Settings.default, Settings.dimmedEffortVolumePercent Settings.default )
+                        |> Expect.equal ( Settings.BreakDimmedEffort, 30 )
             , test "has no pre-round delay" <|
                 \_ -> Settings.preRoundDelaySeconds Settings.default |> Expect.equal 0
             ]
