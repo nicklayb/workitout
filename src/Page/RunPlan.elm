@@ -1,7 +1,7 @@
 port module Page.RunPlan exposing (Model, Msg, init, subscriptions, toSession, update, view)
 
 import Audius exposing (Track)
-import Cmd.Extra exposing (delay, send)
+import Cmd.Extra exposing (send)
 import CustomPlans
 import File exposing (File)
 import GitHub
@@ -20,6 +20,7 @@ import Route exposing (PlanSource(..))
 import Session exposing (Session)
 import Settings exposing (Settings)
 import Task
+import Time
 import Timer exposing (Timer)
 import Ui.Button as Button
 import Ui.Card as Card
@@ -109,13 +110,25 @@ initMusicCommand session =
         |> Cmd.batch
 
 
-{-| Listens to the audio player.
+tickIntervalMilliseconds : Float
+tickIntervalMilliseconds =
+    1000
+
+
+{-| Listens to the audio player, and ticks every second while the timer runs.
+Ticks being a subscription, they stop as soon as the run is reset or the page
+is left.
 -}
 subscriptions : Model -> Sub Msg
-subscriptions _ =
+subscriptions model =
     Sub.batch
         [ Music.Port.trackEnded MusicTrackEnded
         , Music.Port.trackFailed MusicTrackFailed
+        , if Timer.isRunning model.currentTimer then
+            Time.every tickIntervalMilliseconds (\_ -> Tick)
+
+          else
+            Sub.none
         ]
 
 
@@ -232,15 +245,14 @@ update msg model =
 
                 cmd =
                     Cmd.batch
-                        [ delay 1 Tick
-                        , playSoundEffect model "long_beep"
+                        [ playSoundEffect model "long_beep"
                         , musicCmd
                         ]
             in
             ( { startedModel | currentTimer = timer, currentRound = round }, cmd )
 
         ClosePlan ->
-            ( { model | plan = Resource.init, lastPlan = Nothing }, storeLastPlan Nothing )
+            ( resetRun { model | plan = Resource.init, dayPlan = Nothing, lastPlan = Nothing }, storeLastPlan Nothing )
                 |> stopMusic
 
         ChangeDay day ->
@@ -279,7 +291,7 @@ update msg model =
 
                 cmd =
                     if Timer.isRunning timer then
-                        delay 1 Tick
+                        Cmd.none
 
                     else if isCompleted || isWaitingForNextRound model dayPlan then
                         Cmd.none
