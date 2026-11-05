@@ -4,6 +4,8 @@ Just a training plan runner, stateless, no flafla, no data gathering. Just you, 
 
 [Open the application here](https://work.nbvt.xyz)
 
+![This a picture of the application running](/screenshot.png "How the app looks")
+
 ## What is Workitout
 
 It's a simple Plan runner. Really. You can simple create a training plan from the UI (using the "Create plan" button), decide what you want to do on which day, hit run, and do it.
