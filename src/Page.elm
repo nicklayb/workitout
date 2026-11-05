@@ -1,8 +1,8 @@
 module Page exposing (Page(..), view, viewLoading)
 
 import Browser exposing (Document)
-import Html exposing (Html, a, div, header, main_, span, text)
-import Html.Attributes exposing (attribute, class, href)
+import Html exposing (Html, a, div, footer, header, main_, span, text)
+import Html.Attributes exposing (attribute, class, href, rel, target)
 import Route
 import Session exposing (Session)
 import Ui.Icon as Icon
@@ -21,19 +21,24 @@ appName =
     "Workitout"
 
 
+repositoryUrl : String
+repositoryUrl =
+    "https://github.com/nicklayb/workitout"
+
+
 {-| Wraps a page content into the shared layout: a top bar linking home (the
 name is hidden on the home page, which has its own title) and settings, the
-given application-wide `notices` and the content area.
+given application-wide `notices`, the content area and a footer.
 -}
 view : Session -> Page -> List (Html msg) -> { title : String, content : Html msg } -> Document msg
-view _ page notices { title, content } =
+view session page notices { title, content } =
     { title = title ++ " :: WorkItOut"
     , body =
         [ div [ class "flex min-h-screen flex-col bg-gray-50 text-gray-800 antialiased" ]
             [ viewTopBar page
             , viewNotices notices
             , main_ [ class "flex-1" ] [ content ]
-            , viewFooter
+            , viewFooter (Session.appConfig session).version
             ]
         ]
     }
@@ -109,6 +114,28 @@ viewSettingsLink page =
         [ Icon.gear "size-6" ]
 
 
-viewFooter : Html msg
-viewFooter =
-    div [] []
+{-| Discreet footer with a link to the repository, the origin of the app and
+its version.
+-}
+viewFooter : String -> Html msg
+viewFooter version =
+    footer [ class "px-4 py-6" ]
+        [ div [ class "mx-auto flex max-w-6xl flex-wrap items-center justify-center gap-x-2 gap-y-1 text-xs text-gray-400" ]
+            [ a
+                [ href repositoryUrl
+                , target "_blank"
+                , rel "noopener noreferrer"
+                , class "transition-colors hover:text-pink-500"
+                ]
+                [ text "GitHub" ]
+            , viewFooterSeparator
+            , span [] [ text "Made with ❤️ from Shawinigan" ]
+            , viewFooterSeparator
+            , span [ class "tabular-nums" ] [ text ("v" ++ version) ]
+            ]
+        ]
+
+
+viewFooterSeparator : Html msg
+viewFooterSeparator =
+    span [ attribute "aria-hidden" "true" ] [ text "·" ]

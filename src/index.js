@@ -11,7 +11,9 @@ const app = Elm.Main.init({
     lastPlan: localStorage.getItem(LAST_PLAN_KEY),
     settings: localStorage.getItem(SETTINGS_KEY),
     customPlans: localStorage.getItem(CUSTOM_PLANS_KEY),
-    weekday: (new Date()).getDay()
+    weekday: (new Date()).getDay(),
+    // Replaced at build time with the content of the VERSION file.
+    version: APP_VERSION
   }
 });
 

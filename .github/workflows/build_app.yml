@@ -5,9 +5,13 @@ permissions:
   pages: write
   id-token: write
 
+# Publishing only happens when a push to main changes the VERSION file, so
+# bumping the version is what releases the app. It can also be run by hand.
 on:
   push:
     branches: ["main"]
+    paths: ["VERSION"]
+  workflow_dispatch:
 
 jobs:
   build:
