@@ -18,6 +18,19 @@ const ELM_COMPILER_PATH = path.join(__dirname, "node_modules", ".bin", "elm")
 
 const distFolder = url => path.join(DIST_FOLDER, url)
 
+const VERSION_PATH = path.join(__dirname, "VERSION")
+const SEMANTIC_VERSION_PATTERN = /^\d+\.\d+\.\d+$/
+
+// Reads the application version from the VERSION file, failing the build
+// when it isn't a semantic version (MAJOR.MINOR.PATCH).
+function readVersion() {
+  const version = readFileSync(VERSION_PATH, "utf8").trim()
+  if (!SEMANTIC_VERSION_PATTERN.test(version)) {
+    throw new Error(`VERSION must be MAJOR.MINOR.PATCH, got "${version}"`)
+  }
+  return version
+}
+
 const tailwindPlugin = {
   name: 'tailwind-css-v4',
   setup(build) {
@@ -50,6 +63,9 @@ const tailwindPlugin = {
 const buildConfig = {
   entryPoints: ['src/index.js'],
   bundle: true,
+  define: {
+    APP_VERSION: JSON.stringify(readVersion())
+  },
   outdir: distDir,
   plugins: [
     ElmPlugin({
