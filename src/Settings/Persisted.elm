@@ -51,11 +51,24 @@ type alias Version2 =
     }
 
 
+type alias Version3 =
+    { soundEffects : Bool
+    , autoNextRound : Bool
+    , preRoundDelaySeconds : Int
+    , effortMusic : EffortMusic
+    , effortPlaylist : Playlist
+    , breakMusic : BreakMusic
+    , breakPlaylist : Playlist
+    , dimmedEffortVolumePercent : Int
+    , wakeLock : Bool
+    }
+
+
 {-| Version written by `encode`.
 -}
 currentVersion : Int
 currentVersion =
-    2
+    3
 
 
 effortMusicKeys : List ( EffortMusic, String )
@@ -106,6 +119,7 @@ encode settings =
         , ( "breakMusic", encodeKey breakMusicKeys (Settings.breakMusic settings) )
         , ( "breakPlaylistUrl", Encode.string (Playlist.toUrl (Settings.breakPlaylist settings)) )
         , ( "dimmedEffortVolumePercent", Encode.int (Settings.dimmedEffortVolumePercent settings) )
+        , ( "wakeLock", Encode.bool (Settings.wakeLock settings) )
         ]
 
 
@@ -148,10 +162,13 @@ versionDecoder version =
         settingsDecoder =
             case version of
                 1 ->
-                    Decode.map (migrateVersion1To2 >> fromVersion2) version1Decoder
+                    Decode.map (migrateVersion1To2 >> migrateVersion2To3 >> fromVersion3) version1Decoder
 
                 2 ->
-                    Decode.map fromVersion2 version2Decoder
+                    Decode.map (migrateVersion2To3 >> fromVersion3) version2Decoder
+
+                3 ->
+                    Decode.map fromVersion3 version3Decoder
 
                 _ ->
                     Decode.fail ("Unsupported settings version " ++ String.fromInt version)
@@ -239,14 +256,45 @@ playlistDecoder =
             )
 
 
-fromVersion2 : Version2 -> Settings
-fromVersion2 version2 =
+{-| Version 2 had no wake lock setting: the default one is used.
+-}
+migrateVersion2To3 : Version2 -> Version3
+migrateVersion2To3 version2 =
+    { soundEffects = version2.soundEffects
+    , autoNextRound = version2.autoNextRound
+    , preRoundDelaySeconds = version2.preRoundDelaySeconds
+    , effortMusic = version2.effortMusic
+    , effortPlaylist = version2.effortPlaylist
+    , breakMusic = version2.breakMusic
+    , breakPlaylist = version2.breakPlaylist
+    , dimmedEffortVolumePercent = version2.dimmedEffortVolumePercent
+    , wakeLock = Settings.wakeLock Settings.default
+    }
+
+
+version3Decoder : Decoder Version3
+version3Decoder =
+    Decode.succeed Version3
+        |> andMap (Decode.field "soundEffects" Decode.bool)
+        |> andMap (Decode.field "autoNextRound" Decode.bool)
+        |> andMap (Decode.field "preRoundDelaySeconds" Decode.int)
+        |> andMap (Decode.field "effortMusic" (keyDecoder effortMusicKeys))
+        |> andMap (Decode.field "effortPlaylistUrl" playlistDecoder)
+        |> andMap (Decode.field "breakMusic" (keyDecoder breakMusicKeys))
+        |> andMap (Decode.field "breakPlaylistUrl" playlistDecoder)
+        |> andMap (Decode.field "dimmedEffortVolumePercent" Decode.int)
+        |> andMap (Decode.field "wakeLock" Decode.bool)
+
+
+fromVersion3 : Version3 -> Settings
+fromVersion3 version3 =
     Settings.default
-        |> Settings.setSoundEffects version2.soundEffects
-        |> Settings.setAutoNextRound version2.autoNextRound
-        |> Settings.setPreRoundDelay version2.preRoundDelaySeconds
-        |> Settings.setEffortMusic version2.effortMusic
-        |> Settings.setEffortPlaylist version2.effortPlaylist
-        |> Settings.setBreakMusic version2.breakMusic
-        |> Settings.setBreakPlaylist version2.breakPlaylist
-        |> Settings.setDimmedEffortVolume version2.dimmedEffortVolumePercent
+        |> Settings.setSoundEffects version3.soundEffects
+        |> Settings.setAutoNextRound version3.autoNextRound
+        |> Settings.setPreRoundDelay version3.preRoundDelaySeconds
+        |> Settings.setEffortMusic version3.effortMusic
+        |> Settings.setEffortPlaylist version3.effortPlaylist
+        |> Settings.setBreakMusic version3.breakMusic
+        |> Settings.setBreakPlaylist version3.breakPlaylist
+        |> Settings.setDimmedEffortVolume version3.dimmedEffortVolumePercent
+        |> Settings.setWakeLock version3.wakeLock

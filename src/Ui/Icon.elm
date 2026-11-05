@@ -1,4 +1,4 @@
-module Ui.Icon exposing (chevronDown, chevronUp, fork, forward, gear, musicalNote, pause, pencil, play)
+module Ui.Icon exposing (arrowPath, chevronDown, chevronUp, clock, fork, forward, gear, musicalNote, pause, pencil, play, speakerWave, sun)
 
 {-| Inline SVG outline icons, drawn with `currentColor` so they follow the text
 color and sized through the given classes. The gear, chevron, pencil and media paths come
@@ -101,3 +101,31 @@ forward =
 musicalNote : String -> Html msg
 musicalNote =
     outline [ "m9 9 10.5-3m0 6.553v3.75a2.25 2.25 0 0 1-1.632 2.163l-1.32.377a1.803 1.803 0 1 1-.99-3.467l2.31-.66a2.25 2.25 0 0 0 1.632-2.163Zm0 0V2.25L9 5.25v10.303m0 0v3.75a2.25 2.25 0 0 1-1.632 2.163l-1.32.377a1.803 1.803 0 0 1-.99-3.467l2.31-.66A2.25 2.25 0 0 0 9 15.553Z" ]
+
+
+{-| Clock icon, used for the pre-round delay.
+-}
+clock : String -> Html msg
+clock =
+    outline [ "M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" ]
+
+
+{-| Circular arrows icon, used for moving to the next round automatically.
+-}
+arrowPath : String -> Html msg
+arrowPath =
+    outline [ "M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" ]
+
+
+{-| Speaker icon, used for sound effects.
+-}
+speakerWave : String -> Html msg
+speakerWave =
+    outline [ "M19.114 5.636a9 9 0 0 1 0 12.728M16.463 8.288a5.25 5.25 0 0 1 0 7.424M6.75 8.25l4.72-4.72a.75.75 0 0 1 1.28.53v15.88a.75.75 0 0 1-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.009 9.009 0 0 1 2.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75Z" ]
+
+
+{-| Sun icon, used for keeping the screen awake.
+-}
+sun : String -> Html msg
+sun =
+    outline [ "M12 3v2.25m6.364.386-1.591 1.591M21 12h-2.25m-.386 6.364-1.591-1.591M12 18.75V21m-4.773-4.227-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z" ]

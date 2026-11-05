@@ -80,3 +80,48 @@ app.ports.controlMusic.subscribe(function(command) {
     music.pause()
   }
 })
+
+// Screen wake lock: kept while a workout runs. Browsers release it when the
+// page gets hidden, so it is requested again once the page is visible.
+let screenWakeLock = null
+let isScreenWakeLockWanted = false
+let isScreenWakeLockPending = false
+
+async function requestScreenWakeLock() {
+  if (!("wakeLock" in navigator) || screenWakeLock !== null || isScreenWakeLockPending) return
+  isScreenWakeLockPending = true
+  try {
+    const lock = await navigator.wakeLock.request("screen")
+    lock.addEventListener("release", function() {
+      if (screenWakeLock === lock) screenWakeLock = null
+    })
+    screenWakeLock = lock
+    if (!isScreenWakeLockWanted) releaseScreenWakeLock()
+  } catch (error) {
+    // Denied, for instance when the page is hidden or the battery is low.
+  } finally {
+    isScreenWakeLockPending = false
+  }
+}
+
+function releaseScreenWakeLock() {
+  if (screenWakeLock !== null) {
+    screenWakeLock.release()
+    screenWakeLock = null
+  }
+}
+
+app.ports.setScreenWakeLock.subscribe(function(isWanted) {
+  isScreenWakeLockWanted = isWanted
+  if (isWanted) {
+    requestScreenWakeLock()
+  } else {
+    releaseScreenWakeLock()
+  }
+})
+
+document.addEventListener("visibilitychange", function() {
+  if (isScreenWakeLockWanted && document.visibilityState === "visible") {
+    requestScreenWakeLock()
+  }
+})
