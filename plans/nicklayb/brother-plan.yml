@@ -7,7 +7,7 @@ author:
 planning:
   days:
     monday:
-      rounds: 1
+      rounds: 3
       steps:
         - name: "Jumping Jacks"
           seconds: 45
