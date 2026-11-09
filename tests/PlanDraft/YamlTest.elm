@@ -7,8 +7,8 @@ editor must be read back identically by the plan parser.
 import Difficulty exposing (Difficulty(..))
 import Expect
 import Fixtures
-import Plan exposing (Day(..))
-import PlanDraft exposing (PlanDraft, StepKind(..))
+import Plan exposing (Amount(..), Day(..))
+import PlanDraft exposing (Measure(..), PlanDraft, StepKind(..))
 import PlanDraft.Yaml
 import Test exposing (Test, describe, test)
 import Ziplist
@@ -62,6 +62,13 @@ suite =
                             PlanDraft.addStep Sunday Effort PlanDraft.empty
                     in
                     roundTrip draft |> Expect.equal (Ok draft)
+            , test "a plan with efforts counted in repetitions" <|
+                \_ ->
+                    let
+                        repetitionsDraft =
+                            PlanDraft.Yaml.decode Fixtures.repetitionsPlanYaml
+                    in
+                    Result.andThen roundTrip repetitionsDraft |> Expect.equal repetitionsDraft
             , describe "texts that need quoting"
                 (List.map
                     (\text -> test text <| \_ -> roundTrip (trickyDraft text) |> Expect.equal (Ok (trickyDraft text)))
@@ -76,6 +83,24 @@ suite =
                         |> PlanDraft.Yaml.encode
                         |> String.contains "monday"
                         |> Expect.equal False
+            , test "writes the count of efforts measured in repetitions" <|
+                \_ ->
+                    PlanDraft.empty
+                        |> PlanDraft.addStep Monday Effort
+                        |> PlanDraft.setStepMeasure Monday 0 Repetitions
+                        |> PlanDraft.setStepCount Monday 0 20
+                        |> PlanDraft.Yaml.encode
+                        |> (\yaml -> ( String.contains "count: 20" yaml, String.contains "seconds" yaml ))
+                        |> Expect.equal ( True, False )
+            , test "writes the seconds of breaks whatever their measure" <|
+                \_ ->
+                    PlanDraft.empty
+                        |> PlanDraft.addStep Monday Effort
+                        |> PlanDraft.setStepMeasure Monday 0 Repetitions
+                        |> PlanDraft.setStepKind Monday 0 Break
+                        |> PlanDraft.Yaml.toPlan
+                        |> Result.map (\plan -> Plan.daysMap Monday plan |> Maybe.map (.steps >> Ziplist.toList >> List.map Plan.stepAmount))
+                        |> Expect.equal (Ok (Just [ Duration 30 ]))
             , test "writes forkedFrom when forked" <|
                 \_ ->
                     Fixtures.duffPlanYaml

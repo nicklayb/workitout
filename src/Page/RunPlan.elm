@@ -2,6 +2,7 @@ port module Page.RunPlan exposing (Model, Msg, init, subscriptions, toSession, u
 
 import ActiveSettings
 import Audius exposing (Track)
+import Browser.Events
 import Cmd.Extra exposing (send)
 import CustomPlans
 import File exposing (File)
@@ -13,16 +14,16 @@ import Http
 import Json.Decode exposing (Decoder)
 import Music
 import Music.Port
-import Plan exposing (Day(..), Plan, Step, stepSeconds)
+import Plan exposing (Amount(..), Day(..), Plan, Step)
 import PlanDraft.Yaml
 import Random
 import Resource exposing (Resource)
 import Route exposing (PlanSource(..))
 import Session exposing (Session)
 import Settings exposing (Settings)
+import StepProgress exposing (StepProgress)
 import Task
 import Time
-import Timer exposing (Timer)
 import Ui.Button as Button
 import Ui.Card as Card
 import Ui.Icon as Icon
@@ -43,7 +44,7 @@ type alias Model =
     , file : Maybe File
     , plan : Resource Plan
     , dayPlan : Maybe Plan.DaysMap
-    , currentTimer : Timer
+    , stepProgress : StepProgress
     , currentRound : Int
     , lastPlan : Maybe String
     , currentDay : Plan.Day
@@ -57,6 +58,7 @@ type Msg
     | PlanLoaded { result : Result String Plan, storeLastPlan : Maybe String }
     | Start
     | Tick
+    | Done
     | ClosePlan
     | FileFetched (GitHub.HttpResponse String)
     | ChangeDay Plan.Day
@@ -86,7 +88,7 @@ init source maybeDay session =
             , file = Nothing
             , plan = Resource.init
             , dayPlan = Nothing
-            , currentTimer = Timer.init 0
+            , stepProgress = StepProgress.idle
             , currentRound = 0
             , lastPlan = session.appConfig.lastPlan
             , currentDay = currentDay
@@ -117,21 +119,62 @@ tickIntervalMilliseconds =
     1000
 
 
-{-| Listens to the audio player, and ticks every second while the timer runs.
-Ticks being a subscription, they stop as soon as the run is reset or the page
-is left.
+{-| Listens to the audio player, ticks every second while a countdown runs and
+listens to the space bar while a repetition step waits for the user.
+Subscriptions stop as soon as the run is reset or the page is left.
 -}
 subscriptions : Model -> Sub Msg
 subscriptions model =
     Sub.batch
         [ Music.Port.trackEnded MusicTrackEnded
         , Music.Port.trackFailed MusicTrackFailed
-        , if Timer.isRunning model.currentTimer then
+        , if StepProgress.isTicking model.stepProgress then
             Time.every tickIntervalMilliseconds (\_ -> Tick)
 
           else
             Sub.none
+        , if StepProgress.isAwaitingDone model.stepProgress then
+            Browser.Events.onKeyDown (spaceBarDecoder Done)
+
+          else
+            Sub.none
         ]
+
+
+doneKey : String
+doneKey =
+    " "
+
+
+{-| Tags which already react to the space bar when focused, so the key isn't
+also handled globally.
+-}
+interactiveTagNames : List String
+interactiveTagNames =
+    [ "BUTTON", "INPUT", "TEXTAREA", "SELECT", "A" ]
+
+
+{-| Succeeds with `msg` on a single press of the space bar, unless the focus is
+on an element already reacting to it (pressing space on the focused "Done"
+button would otherwise complete two steps).
+-}
+spaceBarDecoder : msg -> Decoder msg
+spaceBarDecoder msg =
+    Json.Decode.map3
+        (\key isRepeat tagName ->
+            key == doneKey && not isRepeat && not (List.member tagName interactiveTagNames)
+        )
+        (Json.Decode.field "key" Json.Decode.string)
+        (Json.Decode.field "repeat" Json.Decode.bool)
+        (Json.Decode.at [ "target", "tagName" ] Json.Decode.string)
+        |> Json.Decode.andThen
+            (\isDonePress ->
+                if isDonePress then
+                    Json.Decode.succeed msg
+
+                else
+                    Json.Decode.fail "Not a press of the space bar"
+            )
 
 
 {-| Applies a change of the music, sending its commands to the audio player.
@@ -213,22 +256,17 @@ update msg model =
                 isStartingRound =
                     isAtRoundStart model.dayPlan
 
-                stepSeconds =
-                    currentStep model
-                        |> Maybe.map Plan.stepSeconds
-                        |> Maybe.withDefault 0
-
-                seconds =
+                extraSeconds =
                     if isStartingRound then
-                        stepSeconds + Settings.preRoundDelaySeconds (settings model)
+                        Settings.preRoundDelaySeconds (settings model)
 
                     else
-                        stepSeconds
+                        0
 
-                timer =
-                    seconds
-                        |> Timer.init
-                        |> Timer.start
+                stepProgress =
+                    currentStep model
+                        |> Maybe.map (Plan.stepAmount >> StepProgress.start extraSeconds)
+                        |> Maybe.withDefault StepProgress.idle
 
                 round =
                     if isStartingRound then
@@ -252,7 +290,7 @@ update msg model =
                         , WakeLock.keepScreenAwake (Settings.wakeLock (settings model))
                         ]
             in
-            ( { startedModel | currentTimer = timer, currentRound = round }, cmd )
+            ( { startedModel | stepProgress = stepProgress, currentRound = round }, cmd )
 
         ClosePlan ->
             ( resetRun { model | plan = Resource.init, dayPlan = Nothing, lastPlan = Nothing }, storeLastPlan Nothing )
@@ -286,46 +324,24 @@ update msg model =
 
         Tick ->
             let
-                timer =
-                    Timer.tick model.currentTimer
+                stepProgress =
+                    StepProgress.tick model.stepProgress
 
-                isCompleted =
-                    not (Timer.isRunning timer) && isWorkoutCompleted model.currentRound dayPlan
-
-                cmd =
-                    if Timer.isRunning timer then
-                        Cmd.none
-
-                    else if isCompleted || isWaitingForNextRound model dayPlan then
-                        Cmd.none
+                ( tickedModel, cmd ) =
+                    if StepProgress.isFinished stepProgress then
+                        completeStep model
 
                     else
-                        send Start
-
-                remaining =
-                    Timer.remaining timer
-
-                playSoundCmd =
-                    if remaining <= 5 then
-                        playSoundEffect model "beep"
-
-                    else
-                        Cmd.none
-
-                dayPlan =
-                    if Timer.isRunning timer then
-                        model.dayPlan
-
-                    else
-                        Maybe.map Plan.daysMapNextStep model.dayPlan
+                        ( { model | stepProgress = stepProgress }, Cmd.none )
             in
-            ( { model | currentTimer = timer, dayPlan = dayPlan, isCompleted = isCompleted }, Cmd.batch [ cmd, playSoundCmd ] )
-                |> (if isCompleted then
-                        stopRun
+            ( tickedModel, Cmd.batch [ cmd, tickSoundEffect model stepProgress ] )
 
-                    else
-                        identity
-                   )
+        Done ->
+            if StepProgress.isAwaitingDone model.stepProgress then
+                completeStep model
+
+            else
+                ( model, Cmd.none )
 
         FileFetched (Ok content) ->
             let
@@ -344,6 +360,57 @@ update msg model =
 
         _ ->
             ( model, Cmd.none )
+
+
+{-| Moves to the next step and starts it, unless the workout is completed or
+the user starts each round manually.
+-}
+completeStep : Model -> ( Model, Cmd Msg )
+completeStep model =
+    let
+        dayPlan =
+            Maybe.map Plan.daysMapNextStep model.dayPlan
+
+        isCompleted =
+            isWorkoutCompleted model.currentRound dayPlan
+
+        completedModel =
+            { model | stepProgress = StepProgress.idle, dayPlan = dayPlan, isCompleted = isCompleted }
+    in
+    if isCompleted then
+        stopRun ( completedModel, Cmd.none )
+
+    else if isWaitingForNextRound model dayPlan then
+        ( completedModel, Cmd.none )
+
+    else
+        ( completedModel, send Start )
+
+
+countdownBeepSeconds : Int
+countdownBeepSeconds =
+    5
+
+
+{-| Beeps during the last seconds of a countdown, and signals with a long beep
+that the repetitions can begin once the preparation is over.
+-}
+tickSoundEffect : Model -> StepProgress -> Cmd msg
+tickSoundEffect model stepProgress =
+    case StepProgress.remaining stepProgress of
+        Just remaining ->
+            if remaining <= countdownBeepSeconds then
+                playSoundEffect model "beep"
+
+            else
+                Cmd.none
+
+        Nothing ->
+            if StepProgress.isAwaitingDone stepProgress then
+                playSoundEffect model "long_beep"
+
+            else
+                Cmd.none
 
 
 {-| Silences the music and lets the screen sleep, keeping the commands already
@@ -527,7 +594,7 @@ viewStep position step =
     li [ class ("flex items-center gap-3 rounded-lg px-3 py-2 transition-colors " ++ stateClasses.row) ]
         [ span [ class ("size-2 shrink-0 rounded-full " ++ stateClasses.dot) ] []
         , span [ class "min-w-0 flex-1 truncate" ] [ text (Plan.stepName step) ]
-        , span [ class "text-sm tabular-nums opacity-80" ] [ text (String.fromInt (Plan.stepSeconds step) ++ "s") ]
+        , span [ class "text-sm tabular-nums opacity-80" ] [ text (amountLabel (Plan.stepAmount step)) ]
         ]
 
 
@@ -544,13 +611,57 @@ viewSteps model =
             p [ class "px-3 py-6 text-center text-gray-400" ] [ text ("Nothing planned for " ++ Plan.dayToString model.currentDay) ]
 
 
-viewClock : Model -> Html Msg
-viewClock model =
-    if Timer.isRunning model.currentTimer then
-        div [ class "text-8xl font-bold tracking-tight text-pink-500 tabular-nums sm:text-9xl" ] [ text (String.fromInt (Timer.remaining model.currentTimer)) ]
+{-| Short label of a step amount, such as `40s` or `×12`.
+-}
+amountLabel : Amount -> String
+amountLabel amount =
+    case amount of
+        Duration seconds ->
+            String.fromInt seconds ++ "s"
+
+        Count count ->
+            "×" ++ String.fromInt count
+
+
+bigNumberClasses : String
+bigNumberClasses =
+    "text-8xl font-bold tracking-tight text-pink-500 tabular-nums sm:text-9xl"
+
+
+viewClock : Step -> Model -> Html Msg
+viewClock step model =
+    case ( StepProgress.remaining model.stepProgress, StepProgress.isAwaitingDone model.stepProgress, Plan.stepAmount step ) of
+        ( Just remaining, _, _ ) ->
+            div [ class bigNumberClasses ] [ text (String.fromInt remaining) ]
+
+        ( Nothing, True, Count count ) ->
+            viewRepetitions count
+
+        _ ->
+            button [ onClick Start, class (Button.primaryClasses ++ " px-10 py-3 text-lg") ] [ text "Start" ]
+
+
+{-| Number of repetitions to perform, with the button moving to the next step.
+-}
+viewRepetitions : Int -> Html Msg
+viewRepetitions count =
+    div [ class "flex flex-col items-center" ]
+        [ div [ class "flex items-baseline gap-2" ]
+            [ span [ class bigNumberClasses ] [ text (String.fromInt count) ]
+            , span [ class "text-2xl font-medium text-gray-400" ] [ text (repetitionsLabel count) ]
+            ]
+        , button [ onClick Done, class (Button.primaryClasses ++ " mt-6 px-10 py-3 text-lg") ] [ text "Done" ]
+        , p [ class "mt-2 text-xs text-gray-400" ] [ text "or press Space" ]
+        ]
+
+
+repetitionsLabel : Int -> String
+repetitionsLabel count =
+    if count == 1 then
+        "rep"
 
     else
-        button [ onClick Start, class (Button.primaryClasses ++ " px-10 py-3 text-lg") ] [ text "Start" ]
+        "reps"
 
 
 viewCompleted : Model -> Html Msg
@@ -584,7 +695,7 @@ viewActiveStep step model =
         [ span [ class "mb-1 text-xs font-medium tracking-wide text-gray-400 uppercase" ] [ text (stepKindLabel step) ]
         , h3 [ class "mb-3 text-center text-3xl font-bold tracking-tight text-gray-800" ] [ text (Plan.stepName step) ]
         , viewStepDescription step
-        , viewClock model
+        , viewClock step model
         , viewMusic (Music.status model.music)
         ]
 
@@ -821,7 +932,7 @@ putLoadedPlan plan model =
 -}
 resetRun : Model -> Model
 resetRun model =
-    setCurrentDayPlay { model | currentRound = 0, currentTimer = Timer.init 0, isCompleted = False }
+    setCurrentDayPlay { model | currentRound = 0, stepProgress = StepProgress.idle, isCompleted = False }
 
 
 setCurrentDayPlay : Model -> Model

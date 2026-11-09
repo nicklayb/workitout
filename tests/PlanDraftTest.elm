@@ -9,7 +9,7 @@ import Difficulty exposing (Difficulty(..))
 import Expect
 import Fixtures
 import Plan exposing (Day(..))
-import PlanDraft exposing (PlanDraft, StepKind(..))
+import PlanDraft exposing (Measure(..), PlanDraft, StepDraft, StepKind(..))
 import Test exposing (Test, describe, test)
 
 
@@ -48,6 +48,23 @@ firstMondaySeconds draft =
     PlanDraft.day Monday draft |> .steps |> List.head |> Maybe.map (.seconds >> BoundedInt.value)
 
 
+firstMondayStep : PlanDraft -> Maybe StepDraft
+firstMondayStep draft =
+    PlanDraft.day Monday draft |> .steps |> List.head
+
+
+firstMondayCount : PlanDraft -> Maybe Int
+firstMondayCount draft =
+    firstMondayStep draft |> Maybe.map (.count >> BoundedInt.value)
+
+
+repetitionsDraft : PlanDraft
+repetitionsDraft =
+    Plan.decode Fixtures.repetitionsPlanYaml
+        |> Result.map PlanDraft.fromPlan
+        |> Result.withDefault PlanDraft.empty
+
+
 suite : Test
 suite =
     describe "PlanDraft"
@@ -73,6 +90,13 @@ suite =
                 \_ -> mondayRounds duffDraft |> Expect.equal Fixtures.mondayRounds
             , test "counts only efforts" <|
                 \_ -> PlanDraft.effortCount Monday duffDraft |> Expect.equal 2
+            , test "keeps efforts counted in repetitions" <|
+                \_ ->
+                    PlanDraft.day Tuesday repetitionsDraft
+                        |> .steps
+                        |> List.map (\step -> ( step.measure, BoundedInt.value step.count ))
+                        |> List.head
+                        |> Expect.equal (Just ( Repetitions, Fixtures.repetitionsEffortCount ))
             , test "keeps step descriptions" <|
                 \_ -> PlanDraft.day Monday duffDraft |> .steps |> List.head |> Maybe.andThen .description |> Expect.equal (Just Fixtures.effortDescription)
             ]
@@ -97,6 +121,20 @@ suite =
                 \_ -> PlanDraft.removeStep Monday 1 kidsDraft |> mondayStepNames |> Expect.equal [ "Bart", "Maggie" ]
             , test "setStepKind turns an effort into a break" <|
                 \_ -> PlanDraft.setStepKind Monday 0 Break kidsDraft |> PlanDraft.effortCount Monday |> Expect.equal 2
+            , test "addStep measures efforts in seconds" <|
+                \_ -> firstMondayStep kidsDraft |> Maybe.map .measure |> Expect.equal (Just Seconds)
+            , test "setStepMeasure switches an effort to repetitions" <|
+                \_ -> PlanDraft.setStepMeasure Monday 0 Repetitions kidsDraft |> firstMondayStep |> Maybe.map .measure |> Expect.equal (Just Repetitions)
+            , test "setStepMeasure keeps the duration for when switching back" <|
+                \_ ->
+                    kidsDraft
+                        |> PlanDraft.setStepSeconds Monday 0 45
+                        |> PlanDraft.setStepMeasure Monday 0 Repetitions
+                        |> PlanDraft.setStepMeasure Monday 0 Seconds
+                        |> firstMondaySeconds
+                        |> Expect.equal (Just 45)
+            , test "setStepCount sets the repetitions" <|
+                \_ -> PlanDraft.setStepCount Monday 0 15 kidsDraft |> firstMondayCount |> Expect.equal (Just 15)
             , test "other days are left untouched" <|
                 \_ -> PlanDraft.effortCount Tuesday kidsDraft |> Expect.equal 0
             ]
@@ -105,6 +143,8 @@ suite =
                 \_ -> PlanDraft.setStepSeconds Monday 0 7200 kidsDraft |> firstMondaySeconds |> Expect.equal (Just 3600)
             , test "step seconds can't go below one" <|
                 \_ -> PlanDraft.setStepSeconds Monday 0 0 kidsDraft |> firstMondaySeconds |> Expect.equal (Just 1)
+            , test "step repetitions are capped" <|
+                \_ -> [ 0, 5000 ] |> List.map (\count -> PlanDraft.setStepCount Monday 0 count kidsDraft |> firstMondayCount) |> Expect.equal [ Just 1, Just 999 ]
             , test "rounds are capped" <|
                 \_ -> [ 0, 500 ] |> List.map (\rounds -> PlanDraft.setRounds Monday rounds kidsDraft |> mondayRounds) |> Expect.equal [ 1, 99 ]
             ]

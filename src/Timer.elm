@@ -1,4 +1,4 @@
-module Timer exposing (Timer, init, isRunning, remaining, start, tick)
+module Timer exposing (Timer, init, isFinished, isRunning, remaining, start, tick)
 
 
 type alias Timer =
@@ -32,6 +32,13 @@ isRunning timer =
 
         _ ->
             False
+
+
+{-| Whether the timer ran until its target.
+-}
+isFinished : Timer -> Bool
+isFinished timer =
+    timer.status == Finished
 
 
 start : Timer -> Timer

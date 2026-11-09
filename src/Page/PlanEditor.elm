@@ -15,7 +15,7 @@ import Html exposing (Html, a, aside, button, div, h2, li, p, section, span, tex
 import Html.Attributes exposing (class, href, title, type_)
 import Html.Events exposing (onClick)
 import Plan exposing (Day)
-import PlanDraft exposing (PlanDraft, StepDraft, StepKind(..))
+import PlanDraft exposing (Measure(..), PlanDraft, StepDraft, StepKind(..))
 import PlanDraft.Yaml
 import Route exposing (EditorTarget(..))
 import Session exposing (Session)
@@ -67,6 +67,8 @@ type Edit
     | ChangedStepKind Int StepKind
     | ChangedStepName Int String
     | ChangedStepSeconds Int Int
+    | ChangedStepCount Int Int
+    | ChangedStepMeasure Int Measure
 
 
 type Msg
@@ -209,6 +211,12 @@ applyEdit day edit =
 
         ChangedStepSeconds index seconds ->
             PlanDraft.setStepSeconds day index seconds
+
+        ChangedStepCount index count ->
+            PlanDraft.setStepCount day index count
+
+        ChangedStepMeasure index measure ->
+            PlanDraft.setStepMeasure day index measure
 
 
 {-| Applies the edit to the selected plan and saves it, storing it first when
@@ -640,13 +648,65 @@ viewStep stepCount index step =
             ]
         , div [ class "min-w-0 flex-1" ]
             [ TextInput.view { label = "Step name", inputType = "text", placeholder = namePlaceholder, value = step.name, onInput = Edited << ChangedStepName index } ]
-        , div [ class "flex shrink-0 items-center gap-1" ]
-            [ NumberInput.view { label = "Duration in seconds", value = step.seconds, onChange = Edited << ChangedStepSeconds index, extraClasses = "w-20" }
-            , span [ class "text-sm text-gray-400" ] [ text "s" ]
-            ]
+        , viewStepAmount index step
         , div [ class "flex shrink-0 items-center" ]
             [ IconButton.view { label = "Move up", isDisabled = index == 0, onPress = Edited (MovedStepUp index) } (Icon.chevronUp "size-4")
             , IconButton.view { label = "Move down", isDisabled = index == stepCount - 1, onPress = Edited (MovedStepDown index) } (Icon.chevronDown "size-4")
             , IconButton.view { label = "Remove step", isDisabled = False, onPress = Edited (RemovedStep index) } (text "×")
             ]
+        ]
+
+
+measureLabel : Measure -> String
+measureLabel measure =
+    case measure of
+        Seconds ->
+            "sec"
+
+        Repetitions ->
+            "reps"
+
+
+{-| Duration or repetitions of a step. Only efforts can be measured in
+repetitions, breaks always last a duration.
+-}
+viewStepAmount : Int -> StepDraft -> Html Msg
+viewStepAmount index step =
+    let
+        ( numberInput, unit ) =
+            case ( step.kind, step.measure ) of
+                ( Effort, Repetitions ) ->
+                    ( NumberInput.view { label = "Repetitions", value = step.count, onChange = Edited << ChangedStepCount index, extraClasses = "w-20" }
+                    , viewMeasureSelect index step.measure
+                    )
+
+                ( Effort, Seconds ) ->
+                    ( viewSecondsInput index step
+                    , viewMeasureSelect index step.measure
+                    )
+
+                ( Break, _ ) ->
+                    ( viewSecondsInput index step
+                    , span [ class "w-24 shrink-0 px-3 text-sm text-gray-400" ] [ text (measureLabel Seconds) ]
+                    )
+    in
+    div [ class "flex shrink-0 items-center gap-1" ] [ numberInput, unit ]
+
+
+viewSecondsInput : Int -> StepDraft -> Html Msg
+viewSecondsInput index step =
+    NumberInput.view { label = "Duration in seconds", value = step.seconds, onChange = Edited << ChangedStepSeconds index, extraClasses = "w-20" }
+
+
+viewMeasureSelect : Int -> Measure -> Html Msg
+viewMeasureSelect index measure =
+    div [ class "w-24 shrink-0" ]
+        [ Select.view
+            { label = "Measure"
+            , options = [ Seconds, Repetitions ]
+            , selected = measure
+            , toKey = measureLabel
+            , toLabel = measureLabel
+            , onSelect = Edited << ChangedStepMeasure index
+            }
         ]

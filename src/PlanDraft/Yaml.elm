@@ -7,7 +7,7 @@ the `plans` branch.
 import BoundedInt
 import Difficulty
 import Plan exposing (Plan)
-import PlanDraft exposing (DayDraft, PlanDraft, StepDraft, StepKind(..))
+import PlanDraft exposing (DayDraft, Measure(..), PlanDraft, StepDraft, StepKind(..))
 import Yaml.Encode as Encode exposing (Encoder)
 
 
@@ -163,10 +163,22 @@ stepEncoder step =
         (List.concat
             [ nameField
             , kindField
-            , [ ( "seconds", Encode.int (BoundedInt.value step.seconds) ) ]
+            , [ amountField step ]
             , optionalField "description" step.description
             ]
         )
+
+
+{-| Breaks always last a duration; efforts follow their measure.
+-}
+amountField : StepDraft -> ( String, Encoder )
+amountField step =
+    case ( step.kind, step.measure ) of
+        ( Effort, Repetitions ) ->
+            ( "count", Encode.int (BoundedInt.value step.count) )
+
+        _ ->
+            ( "seconds", Encode.int (BoundedInt.value step.seconds) )
 
 
 optionalField : String -> Maybe String -> List ( String, Encoder )

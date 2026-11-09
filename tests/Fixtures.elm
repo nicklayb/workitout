@@ -9,6 +9,8 @@ module Fixtures exposing
     , duffPlanYaml
     , effortDescription
     , effortTracks
+    , effortWithSecondsAndCountYaml
+    , effortWithoutAmountYaml
     , firstEffortName
     , firstEffortSeconds
     , invalidYaml
@@ -22,6 +24,8 @@ module Fixtures exposing
     , remotePlanJson
     , remotePlanMissingFieldJson
     , remotePlansJson
+    , repetitionsEffortCount
+    , repetitionsPlanYaml
     , secondEffortName
     , secondEffortSeconds
     , treeEmptyJson
@@ -163,6 +167,64 @@ planning:
       steps:
         - name: Donut lifts
           seconds: 40
+"""
+
+
+repetitionsEffortCount : Int
+repetitionsEffortCount =
+    12
+
+
+{-| A Tuesday made of an effort counted in repetitions followed by a break.
+-}
+repetitionsPlanYaml : String
+repetitionsPlanYaml =
+    """description: Duff can curls
+author:
+  name: Barney Gumble
+planning:
+  days:
+    tuesday:
+      rounds: 2
+      steps:
+        - name: Duff can curls
+          count: 12
+        - type: break
+          seconds: 15
+"""
+
+
+{-| A plan whose effort has both `seconds` and `count`.
+-}
+effortWithSecondsAndCountYaml : String
+effortWithSecondsAndCountYaml =
+    """description: Confused Ralph
+author:
+  name: Ralph Wiggum
+planning:
+  days:
+    monday:
+      rounds: 1
+      steps:
+        - name: Eating paste
+          seconds: 30
+          count: 10
+"""
+
+
+{-| A plan whose effort has neither `seconds` nor `count`.
+-}
+effortWithoutAmountYaml : String
+effortWithoutAmountYaml =
+    """description: Lazy Homer
+author:
+  name: Homer Simpson
+planning:
+  days:
+    monday:
+      rounds: 1
+      steps:
+        - name: Napping
 """
 
 
