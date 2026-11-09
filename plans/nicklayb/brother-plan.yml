@@ -9,6 +9,9 @@ planning:
     monday:
       rounds: 3
       steps:
+        - type: break
+          name: "Countdown"
+          seconds: 15
         - name: "Jumping Jacks"
           seconds: 45
         - name: "Squats"
