@@ -1,0 +1,25 @@
+description: "Brother's plan"
+difficulty: medium
+author:
+  github: nicklayb
+  name: Nicolas Boisvert
+  email: nicklay@me.com
+planning:
+  days:
+    monday:
+      rounds: 1
+      steps:
+        - name: "Jumping Jacks"
+          seconds: 45
+        - name: "Squats"
+          count: 12
+        - name: "Push ups"
+          count: 10
+        - name: "Planche"
+          seconds: 30
+        - name: "Fentes jambe gauche"
+          count: 10
+        - name: "Fentres jambe droite"
+          count: 10
+        - type: break
+          seconds: 60
