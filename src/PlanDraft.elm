@@ -1,5 +1,6 @@
 module PlanDraft exposing
     ( DayDraft
+    , Measure(..)
     , PlanDraft
     , StepDraft
     , StepKind(..)
@@ -7,6 +8,7 @@ module PlanDraft exposing
     , authorEmail
     , authorGithub
     , authorName
+    , countBounds
     , day
     , description
     , difficulty
@@ -26,7 +28,9 @@ module PlanDraft exposing
     , setDescription
     , setDifficulty
     , setRounds
+    , setStepCount
     , setStepKind
+    , setStepMeasure
     , setStepName
     , setStepSeconds
     )
@@ -42,7 +46,7 @@ to their bounds.
 import BoundedInt exposing (BoundedInt, Bounds)
 import Dict exposing (Dict)
 import Difficulty exposing (Difficulty)
-import Plan exposing (Day, Plan, Step(..))
+import Plan exposing (Amount(..), Day, Plan, Step(..))
 import Ziplist
 
 
@@ -66,13 +70,17 @@ type alias DayDraft =
     }
 
 
-{-| A step of a day. `description` is not editable, it is only kept from
-imported or forked plans.
+{-| A step of a day. Both the duration and the repetitions are kept so
+switching the measure back and forth doesn't lose them; only the one matching
+`measure` is used, and breaks always use the duration. `description` is not
+editable, it is only kept from imported or forked plans.
 -}
 type alias StepDraft =
     { kind : StepKind
     , name : String
+    , measure : Measure
     , seconds : BoundedInt
+    , count : BoundedInt
     , description : Maybe String
     }
 
@@ -80,6 +88,14 @@ type alias StepDraft =
 type StepKind
     = Effort
     | Break
+
+
+{-| How an effort is measured: held for a duration or performed a number of
+times.
+-}
+type Measure
+    = Seconds
+    | Repetitions
 
 
 maximumRounds : Int
@@ -102,6 +118,16 @@ defaultBreakSeconds =
     10
 
 
+defaultCount : Int
+defaultCount =
+    10
+
+
+maximumCount : Int
+maximumCount =
+    999
+
+
 {-| Allowed number of rounds of a day.
 -}
 roundsBounds : Bounds
@@ -115,6 +141,13 @@ since the timer would never finish.
 secondsBounds : Bounds
 secondsBounds =
     { minimum = 1, maximum = secondsPerHour }
+
+
+{-| Allowed number of repetitions of an effort.
+-}
+countBounds : Bounds
+countBounds =
+    { minimum = 1, maximum = maximumCount }
 
 
 {-| A plan without any information nor step.
@@ -174,17 +207,28 @@ stepFromPlanStep : Step -> StepDraft
 stepFromPlanStep step =
     case step of
         Plan.Effort spec ->
-            newStep Effort (sanitizeText spec.name) spec.seconds spec.description
+            newStep Effort (sanitizeText spec.name) spec.amount spec.description
 
         Plan.Break spec ->
-            newStep Break (sanitizeMaybe spec.name) spec.seconds spec.description
+            newStep Break (sanitizeMaybe spec.name) (Duration spec.seconds) spec.description
 
 
-newStep : StepKind -> String -> Int -> Maybe String -> StepDraft
-newStep kind name seconds maybeDescription =
+newStep : StepKind -> String -> Amount -> Maybe String -> StepDraft
+newStep kind name amount maybeDescription =
+    let
+        ( measure, seconds, count ) =
+            case amount of
+                Duration stepSeconds ->
+                    ( Seconds, stepSeconds, defaultCount )
+
+                Count stepCount ->
+                    ( Repetitions, defaultEffortSeconds, stepCount )
+    in
     { kind = kind
     , name = name
+    , measure = measure
     , seconds = BoundedInt.init secondsBounds seconds
+    , count = BoundedInt.init countBounds count
     , description = Maybe.map sanitizeText maybeDescription
     }
 
@@ -332,7 +376,7 @@ addStep planDay kind =
                 Break ->
                     defaultBreakSeconds
     in
-    updateSteps planDay (\steps -> steps ++ [ newStep kind "" seconds Nothing ])
+    updateSteps planDay (\steps -> steps ++ [ newStep kind "" (Duration seconds) Nothing ])
 
 
 removeStep : Day -> Int -> PlanDraft -> PlanDraft
@@ -364,6 +408,18 @@ setStepName planDay index name =
 setStepSeconds : Day -> Int -> Int -> PlanDraft -> PlanDraft
 setStepSeconds planDay index seconds =
     updateStep planDay index (\step -> { step | seconds = BoundedInt.set seconds step.seconds })
+
+
+{-| Sets the repetitions of a step, capped to `countBounds`.
+-}
+setStepCount : Day -> Int -> Int -> PlanDraft -> PlanDraft
+setStepCount planDay index count =
+    updateStep planDay index (\step -> { step | count = BoundedInt.set count step.count })
+
+
+setStepMeasure : Day -> Int -> Measure -> PlanDraft -> PlanDraft
+setStepMeasure planDay index measure =
+    updateStep planDay index (\step -> { step | measure = measure })
 
 
 setStepKind : Day -> Int -> StepKind -> PlanDraft -> PlanDraft

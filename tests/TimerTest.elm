@@ -37,6 +37,10 @@ suite =
             \_ -> Timer.init targetSeconds |> Timer.start |> tickTimes targetSeconds |> Timer.isRunning |> Expect.equal False
         , test "has nothing remaining once the target is reached" <|
             \_ -> Timer.init targetSeconds |> Timer.start |> tickTimes targetSeconds |> Timer.remaining |> Expect.equal 0
+        , test "isFinished is false while running" <|
+            \_ -> Timer.init targetSeconds |> Timer.start |> tickTimes (targetSeconds - 1) |> Timer.isFinished |> Expect.equal False
+        , test "isFinished is true once the target is reached" <|
+            \_ -> Timer.init targetSeconds |> Timer.start |> tickTimes targetSeconds |> Timer.isFinished |> Expect.equal True
         , test "tick leaves a timer that isn't started unchanged" <|
             \_ -> Timer.init targetSeconds |> Timer.tick |> Expect.equal (Timer.init targetSeconds)
         , test "tick leaves a finished timer unchanged" <|

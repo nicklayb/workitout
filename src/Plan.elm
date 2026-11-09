@@ -1,4 +1,4 @@
-module Plan exposing (Author, BreakWorkoutSpec, Day(..), DaysMap, EffortWorkoutSpec, Plan, Step(..), allDays, authorName, dayEnum, dayFromString, dayFromTimeDay, dayToString, daysMap, daysMapNextStep, decode, isBreakStep, stepDescription, stepName, stepSeconds, weekdayEquals, weekdays)
+module Plan exposing (Amount(..), Author, BreakWorkoutSpec, Day(..), DaysMap, EffortWorkoutSpec, Plan, Step(..), allDays, authorName, dayEnum, dayFromString, dayFromTimeDay, dayToString, daysMap, daysMapNextStep, decode, isBreakStep, stepAmount, stepDescription, stepName, weekdayEquals, weekdays)
 
 import Dict exposing (Dict)
 import Difficulty exposing (Difficulty)
@@ -171,8 +171,16 @@ type alias Author =
     }
 
 
+{-| What an effort asks for: holding it for a number of seconds (`seconds`
+in plan files) or performing a number of repetitions (`count`).
+-}
+type Amount
+    = Duration Int
+    | Count Int
+
+
 type alias EffortWorkoutSpec =
-    { name : String, seconds : Int, description : Maybe String }
+    { name : String, amount : Amount, description : Maybe String }
 
 
 type alias BreakWorkoutSpec =
@@ -219,14 +227,16 @@ type alias Plan =
     }
 
 
-stepSeconds : Step -> Int
-stepSeconds step =
+{-| What the step asks for. Breaks always last a number of seconds.
+-}
+stepAmount : Step -> Amount
+stepAmount step =
     case step of
         Break { seconds } ->
-            seconds
+            Duration seconds
 
-        Effort { seconds } ->
-            seconds
+        Effort { amount } ->
+            amount
 
 
 {-| Explanation of how to perform the step, if the plan author provided one.
@@ -383,7 +393,7 @@ decoder =
         effortWorkoutDecoder =
             YamlDecode.map3 EffortWorkoutSpec
                 (YamlDecode.field "name" YamlDecode.string)
-                (YamlDecode.field "seconds" YamlDecode.int)
+                amountDecoder
                 descriptionDecoder
 
         stepConverter decodedType =
@@ -421,6 +431,30 @@ decoder =
         (YamlDecode.field "planning" planningDecoder)
         difficultyDecoder
         (YamlDecode.maybe (YamlDecode.field "forkedFrom" YamlDecode.string))
+
+
+{-| Decodes the amount of an effort, which has either `seconds` or `count`.
+-}
+amountDecoder : YamlDecode.Decoder Amount
+amountDecoder =
+    YamlDecode.map2 Tuple.pair
+        (YamlDecode.maybe (YamlDecode.field "seconds" YamlDecode.int))
+        (YamlDecode.maybe (YamlDecode.field "count" YamlDecode.int))
+        |> YamlDecode.andThen
+            (\fields ->
+                case fields of
+                    ( Just seconds, Nothing ) ->
+                        YamlDecode.succeed (Duration seconds)
+
+                    ( Nothing, Just count ) ->
+                        YamlDecode.succeed (Count count)
+
+                    ( Just _, Just _ ) ->
+                        YamlDecode.fail "An effort can't have both seconds and count"
+
+                    ( Nothing, Nothing ) ->
+                        YamlDecode.fail "An effort needs either seconds or count"
+            )
 
 
 decode : String -> Result String Plan

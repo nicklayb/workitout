@@ -8,7 +8,7 @@ import Dict
 import Difficulty exposing (Difficulty(..))
 import Expect
 import Fixtures
-import Plan exposing (Day(..), Plan, Step)
+import Plan exposing (Amount(..), Day(..), Plan, Step)
 import Test exposing (Test, describe, test)
 import Time
 import Ziplist
@@ -131,6 +131,16 @@ decodeTests =
             \_ ->
                 Plan.decode Fixtures.planMissingDescriptionYaml
                     |> Expect.err
+        , test "drops a day whose effort has both seconds and count" <|
+            \_ ->
+                Plan.decode Fixtures.effortWithSecondsAndCountYaml
+                    |> Result.map (Plan.daysMap Monday)
+                    |> Expect.equal (Ok Nothing)
+        , test "drops a day whose effort has neither seconds nor count" <|
+            \_ ->
+                Plan.decode Fixtures.effortWithoutAmountYaml
+                    |> Result.map (Plan.daysMap Monday)
+                    |> Expect.equal (Ok Nothing)
         , test "fails on malformed YAML" <|
             \_ ->
                 Plan.decode Fixtures.invalidYaml
@@ -141,11 +151,16 @@ decodeTests =
 stepTests : Test
 stepTests =
     describe "steps"
-        [ test "stepSeconds returns the duration of efforts and breaks" <|
+        [ test "stepAmount returns the duration of efforts and breaks" <|
             \_ ->
                 mondaySteps
-                    |> List.map Plan.stepSeconds
-                    |> Expect.equal [ Fixtures.firstEffortSeconds, Fixtures.breakSeconds, Fixtures.unnamedBreakSeconds, Fixtures.secondEffortSeconds ]
+                    |> List.map Plan.stepAmount
+                    |> Expect.equal (List.map Duration [ Fixtures.firstEffortSeconds, Fixtures.breakSeconds, Fixtures.unnamedBreakSeconds, Fixtures.secondEffortSeconds ])
+        , test "stepAmount returns the repetitions of counted efforts" <|
+            \_ ->
+                Plan.decode Fixtures.repetitionsPlanYaml
+                    |> Result.map (stepsOfDay Tuesday >> List.map Plan.stepAmount)
+                    |> Expect.equal (Ok [ Count Fixtures.repetitionsEffortCount, Duration Fixtures.breakSeconds ])
         , test "stepDescription returns the optional description" <|
             \_ ->
                 mondaySteps
