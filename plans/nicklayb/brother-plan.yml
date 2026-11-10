@@ -11,9 +11,6 @@ planning:
       steps:
         - type: break
           seconds: 60
-        - type: break
-          name: "Countdown"
-          seconds: 15
         - name: "Jumping Jacks"
           seconds: 45
         - name: "Squats"
