@@ -10,6 +10,8 @@ planning:
       rounds: 3
       steps:
         - type: break
+          seconds: 60
+        - type: break
           name: "Countdown"
           seconds: 15
         - name: "Jumping Jacks"
@@ -18,11 +20,13 @@ planning:
           count: 12
         - name: "Push ups"
           count: 10
+        - name: "Prepare"
+          type: break
+          seconds: 15
         - name: "Planche"
           seconds: 30
         - name: "Fentes jambe gauche"
           count: 10
         - name: "Fentres jambe droite"
           count: 10
-        - type: break
-          seconds: 60
+
