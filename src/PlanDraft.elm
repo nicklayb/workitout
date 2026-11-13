@@ -2,6 +2,7 @@ module PlanDraft exposing
     ( DayDraft
     , Measure(..)
     , PlanDraft
+    , Schedule(..)
     , StepDraft
     , StepKind(..)
     , addStep
@@ -14,6 +15,7 @@ module PlanDraft exposing
     , difficulty
     , effortCount
     , empty
+    , everyDay
     , forkFrom
     , forkedFrom
     , fromPlan
@@ -22,17 +24,20 @@ module PlanDraft exposing
     , removeStep
     , roundsBounds
     , sanitizeText
+    , schedule
     , secondsBounds
     , setAuthorEmail
     , setAuthorName
     , setDescription
     , setDifficulty
     , setRounds
+    , setSchedule
     , setStepCount
     , setStepKind
     , setStepMeasure
     , setStepName
     , setStepSeconds
+    , stepAmount
     )
 
 {-| Editable version of a plan, built by the plan editor.
@@ -58,8 +63,19 @@ type PlanDraft
         , authorGithub : Maybe String
         , difficulty : Difficulty
         , forkedFrom : Maybe String
+        , schedule : Schedule
         , dayByName : Dict String DayDraft
+        , everyDay : DayDraft
         }
+
+
+{-| Whether the plan has a workout per weekday or the same workout every day.
+Both are kept so switching back and forth doesn't lose them; only the one
+matching the schedule is used and exported.
+-}
+type Schedule
+    = Weekly
+    | EveryDay
 
 
 {-| Planning of a single day: its steps are repeated `rounds` times.
@@ -161,7 +177,9 @@ empty =
         , authorGithub = Nothing
         , difficulty = Difficulty.default
         , forkedFrom = Nothing
+        , schedule = Weekly
         , dayByName = Dict.empty
+        , everyDay = emptyDay
         }
 
 
@@ -175,10 +193,13 @@ emptyDay =
 fromPlan : Plan -> PlanDraft
 fromPlan plan =
     let
-        dayByName =
-            Plan.allDays
-                |> List.filterMap (\planDay -> Plan.daysMap planDay plan |> Maybe.map (\daysMap -> ( Plan.dayToString planDay, dayFromDaysMap daysMap )))
-                |> Dict.fromList
+        ( planSchedule, dayByName, everyDayWorkout ) =
+            case plan.schedule of
+                Plan.Weekly _ ->
+                    ( Weekly, weeklyDays plan, emptyDay )
+
+                Plan.EveryDay workout ->
+                    ( EveryDay, Dict.empty, dayFromDaysMap workout )
     in
     PlanDraft
         { description = sanitizeText plan.description
@@ -187,8 +208,17 @@ fromPlan plan =
         , authorGithub = Maybe.map sanitizeText plan.author.github
         , difficulty = plan.difficulty
         , forkedFrom = Maybe.map sanitizeText plan.forkedFrom
+        , schedule = planSchedule
         , dayByName = dayByName
+        , everyDay = everyDayWorkout
         }
+
+
+weeklyDays : Plan -> Dict String DayDraft
+weeklyDays plan =
+    Plan.allDays
+        |> List.filterMap (\planDay -> Plan.daysMap planDay plan |> Maybe.map (\daysMap -> ( Plan.dayToString planDay, dayFromDaysMap daysMap )))
+        |> Dict.fromList
 
 
 sanitizeMaybe : Maybe String -> String
@@ -311,12 +341,44 @@ forkedFrom (PlanDraft draft) =
     draft.forkedFrom
 
 
-{-| Planning of a day, empty when nothing is planned.
+{-| Workout of the plan when scheduled every day, kept while scheduled weekly.
+-}
+everyDay : PlanDraft -> DayDraft
+everyDay (PlanDraft draft) =
+    draft.everyDay
+
+
+schedule : PlanDraft -> Schedule
+schedule (PlanDraft draft) =
+    draft.schedule
+
+
+{-| Planning of a day, empty when nothing is planned. Plans scheduled every
+day ignore the day and give their single workout; every day-based function
+of this module behaves the same.
 -}
 day : Day -> PlanDraft -> DayDraft
 day planDay (PlanDraft draft) =
-    Dict.get (Plan.dayToString planDay) draft.dayByName
-        |> Maybe.withDefault emptyDay
+    case draft.schedule of
+        Weekly ->
+            Dict.get (Plan.dayToString planDay) draft.dayByName
+                |> Maybe.withDefault emptyDay
+
+        EveryDay ->
+            draft.everyDay
+
+
+{-| What a step asks for: breaks always last their duration while efforts
+follow their measure.
+-}
+stepAmount : StepDraft -> Amount
+stepAmount step =
+    case ( step.kind, step.measure ) of
+        ( Effort, Repetitions ) ->
+            Count (BoundedInt.value step.count)
+
+        _ ->
+            Duration (BoundedInt.value step.seconds)
 
 
 {-| Number of effort steps (breaks excluded) planned on a day.
@@ -354,6 +416,26 @@ setAuthorEmail text (PlanDraft draft) =
 setDifficulty : Difficulty -> PlanDraft -> PlanDraft
 setDifficulty newDifficulty (PlanDraft draft) =
     PlanDraft { draft | difficulty = newDifficulty }
+
+
+{-| Switches the schedule. When the workout of `planDay` under the new
+schedule has no step yet, it starts as a copy of the one under the previous
+schedule, so turning a weekday into an every day plan keeps its steps.
+-}
+setSchedule : Day -> Schedule -> PlanDraft -> PlanDraft
+setSchedule planDay newSchedule ((PlanDraft draft) as planDraft) =
+    let
+        previousWorkout =
+            day planDay planDraft
+
+        switched =
+            PlanDraft { draft | schedule = newSchedule }
+    in
+    if List.isEmpty (day planDay switched).steps then
+        updateDay planDay (\_ -> previousWorkout) switched
+
+    else
+        switched
 
 
 {-| Sets the rounds of a day, capped to `roundsBounds`.
@@ -429,7 +511,12 @@ setStepKind planDay index kind =
 
 updateDay : Day -> (DayDraft -> DayDraft) -> PlanDraft -> PlanDraft
 updateDay planDay update ((PlanDraft draft) as planDraft) =
-    PlanDraft { draft | dayByName = Dict.insert (Plan.dayToString planDay) (update (day planDay planDraft)) draft.dayByName }
+    case draft.schedule of
+        Weekly ->
+            PlanDraft { draft | dayByName = Dict.insert (Plan.dayToString planDay) (update (day planDay planDraft)) draft.dayByName }
+
+        EveryDay ->
+            PlanDraft { draft | everyDay = update draft.everyDay }
 
 
 updateSteps : Day -> (List StepDraft -> List StepDraft) -> PlanDraft -> PlanDraft

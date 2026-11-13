@@ -11,6 +11,8 @@ module Fixtures exposing
     , effortTracks
     , effortWithSecondsAndCountYaml
     , effortWithoutAmountYaml
+    , everyDayPlanYaml
+    , everyDayRounds
     , firstEffortName
     , firstEffortSeconds
     , invalidYaml
@@ -18,6 +20,8 @@ module Fixtures exposing
     , planDescription
     , planMissingDescriptionYaml
     , planWithoutDifficultyYaml
+    , planWithoutScheduleYaml
+    , planningAndWorkoutYaml
     , playlistHandle
     , playlistSlug
     , playlistUrl
@@ -225,6 +229,61 @@ planning:
       rounds: 1
       steps:
         - name: Napping
+"""
+
+
+everyDayRounds : Int
+everyDayRounds =
+    4
+
+
+{-| A plan with the same workout every day: an effort counted in repetitions
+followed by a break.
+-}
+everyDayPlanYaml : String
+everyDayPlanYaml =
+    """description: Daily Squishee brain freeze
+author:
+  name: Apu Nahasapeemapetilon
+workout:
+  rounds: 4
+  steps:
+    - name: Squishee squats
+      count: 15
+    - type: break
+      seconds: 20
+"""
+
+
+{-| A plan having both a weekly planning and a workout for every day.
+-}
+planningAndWorkoutYaml : String
+planningAndWorkoutYaml =
+    """description: Indecisive Ned
+author:
+  name: Ned Flanders
+planning:
+  days:
+    sunday:
+      rounds: 1
+      steps:
+        - name: Praying
+          seconds: 60
+workout:
+  rounds: 1
+  steps:
+    - name: Diddly squats
+      seconds: 30
+"""
+
+
+{-| A plan with neither a weekly planning nor a workout.
+-}
+planWithoutScheduleYaml : String
+planWithoutScheduleYaml =
+    """description: Lazy Barney
+author:
+  name: Barney Gumble
 """
 
 

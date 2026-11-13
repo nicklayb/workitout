@@ -1,4 +1,4 @@
-module Plan exposing (Amount(..), Author, BreakWorkoutSpec, Day(..), DaysMap, EffortWorkoutSpec, Plan, Step(..), allDays, authorName, dayEnum, dayFromString, dayFromTimeDay, dayToString, daysMap, daysMapNextStep, decode, isBreakStep, stepAmount, stepDescription, stepName, weekdayEquals, weekdays)
+module Plan exposing (Amount(..), Author, BreakWorkoutSpec, DailyPlanning, Day(..), DaysMap, EffortWorkoutSpec, Plan, Schedule(..), Step(..), allDays, authorName, dayEnum, dayFromString, dayFromTimeDay, dayToString, daysMap, daysMapNextStep, decode, isBreakStep, isScheduledWeekly, stepAmount, stepDescription, stepName, weekdayEquals, weekdays)
 
 import Dict exposing (Dict)
 import Difficulty exposing (Difficulty)
@@ -24,25 +24,12 @@ allDays =
     [ Sunday, Monday, Tuesday, Wednesday, Thursday, Friday, Saturday ]
 
 
+{-| Every day of the week, starting on Sunday, along with whether the plan has
+a workout that day.
+-}
 weekdays : Plan -> List ( Day, Bool )
 weekdays plan =
-    let
-        boolFromMaybe day =
-            case day of
-                Just _ ->
-                    True
-
-                Nothing ->
-                    False
-    in
-    [ ( Sunday, boolFromMaybe plan.planning.days.sunday )
-    , ( Monday, boolFromMaybe plan.planning.days.monday )
-    , ( Tuesday, boolFromMaybe plan.planning.days.tuesday )
-    , ( Wednesday, boolFromMaybe plan.planning.days.wednesday )
-    , ( Thursday, boolFromMaybe plan.planning.days.thursday )
-    , ( Friday, boolFromMaybe plan.planning.days.friday )
-    , ( Saturday, boolFromMaybe plan.planning.days.saturday )
-    ]
+    List.map (\day -> ( day, daysMap day plan /= Nothing )) allDays
 
 
 weekdayEquals : Day -> Day -> Bool
@@ -213,15 +200,18 @@ type alias DaysMap =
     }
 
 
-type alias Planning =
-    { days : DailyPlanning
-    }
+{-| When the workouts happen: a different workout per weekday (`planning` in
+plan files) or the same workout every day (`workout` in plan files).
+-}
+type Schedule
+    = Weekly DailyPlanning
+    | EveryDay DaysMap
 
 
 type alias Plan =
     { description : String
     , author : Author
-    , planning : Planning
+    , schedule : Schedule
     , difficulty : Difficulty
     , forkedFrom : Maybe String
     }
@@ -278,29 +268,55 @@ newDailyPlanning =
     }
 
 
+{-| Workout of a day, which is the single workout of plans scheduled every
+day.
+-}
 daysMap : Day -> Plan -> Maybe DaysMap
 daysMap day plan =
+    case plan.schedule of
+        Weekly dailyPlanning ->
+            dailyPlanningDay day dailyPlanning
+
+        EveryDay workout ->
+            Just workout
+
+
+{-| Whether the plan has a different workout per weekday rather than the same
+one every day.
+-}
+isScheduledWeekly : Plan -> Bool
+isScheduledWeekly plan =
+    case plan.schedule of
+        Weekly _ ->
+            True
+
+        EveryDay _ ->
+            False
+
+
+dailyPlanningDay : Day -> DailyPlanning -> Maybe DaysMap
+dailyPlanningDay day dailyPlanning =
     case day of
         Monday ->
-            plan.planning.days.monday
+            dailyPlanning.monday
 
         Tuesday ->
-            plan.planning.days.tuesday
+            dailyPlanning.tuesday
 
         Wednesday ->
-            plan.planning.days.wednesday
+            dailyPlanning.wednesday
 
         Thursday ->
-            plan.planning.days.thursday
+            dailyPlanning.thursday
 
         Friday ->
-            plan.planning.days.friday
+            dailyPlanning.friday
 
         Saturday ->
-            plan.planning.days.saturday
+            dailyPlanning.saturday
 
         Sunday ->
-            plan.planning.days.sunday
+            dailyPlanning.sunday
 
 
 isBreakStep : Step -> Bool
@@ -408,18 +424,17 @@ decoder =
             YamlDecode.maybe (YamlDecode.field "type" YamlDecode.string)
                 |> YamlDecode.andThen stepConverter
 
-        dailyPlanningDecoder =
+        daysMapDecoder =
             YamlDecode.map2 DaysMap
                 (YamlDecode.field "rounds" YamlDecode.int)
                 (YamlDecode.field "steps" (YamlDecode.list stepDecoder |> YamlDecode.map Ziplist.init))
 
         daysDecoder =
-            YamlDecode.dict dailyPlanningDecoder
+            YamlDecode.dict daysMapDecoder
                 |> YamlDecode.map convertDaysMap
 
         planningDecoder =
-            YamlDecode.map Planning
-                (YamlDecode.field "days" daysDecoder)
+            YamlDecode.field "days" daysDecoder
 
         difficultyDecoder =
             YamlDecode.maybe (YamlDecode.field "difficulty" Difficulty.yamlDecoder)
@@ -428,9 +443,33 @@ decoder =
     YamlDecode.map5 Plan
         (YamlDecode.field "description" YamlDecode.string)
         (YamlDecode.field "author" authorDecoder)
-        (YamlDecode.field "planning" planningDecoder)
+        (scheduleDecoder planningDecoder daysMapDecoder)
         difficultyDecoder
         (YamlDecode.maybe (YamlDecode.field "forkedFrom" YamlDecode.string))
+
+
+{-| Decodes either a weekly `planning` or a single `workout` for every day.
+-}
+scheduleDecoder : YamlDecode.Decoder DailyPlanning -> YamlDecode.Decoder DaysMap -> YamlDecode.Decoder Schedule
+scheduleDecoder planningDecoder workoutDecoder =
+    YamlDecode.map2 Tuple.pair
+        (YamlDecode.maybe (YamlDecode.field "planning" planningDecoder))
+        (YamlDecode.maybe (YamlDecode.field "workout" workoutDecoder))
+        |> YamlDecode.andThen
+            (\fields ->
+                case fields of
+                    ( Just dailyPlanning, Nothing ) ->
+                        YamlDecode.succeed (Weekly dailyPlanning)
+
+                    ( Nothing, Just workout ) ->
+                        YamlDecode.succeed (EveryDay workout)
+
+                    ( Just _, Just _ ) ->
+                        YamlDecode.fail "A plan can't have both planning and workout"
+
+                    ( Nothing, Nothing ) ->
+                        YamlDecode.fail "A plan needs either a planning or a workout"
+            )
 
 
 {-| Decodes the amount of an effort, which has either `seconds` or `count`.

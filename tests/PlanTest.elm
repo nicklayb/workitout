@@ -127,6 +127,22 @@ decodeTests =
                 mondaySteps
                     |> List.map Plan.stepName
                     |> Expect.equal [ Fixtures.firstEffortName, "Duff break", defaultBreakName, Fixtures.secondEffortName ]
+        , test "a plan with a planning is scheduled weekly" <|
+            \_ -> expectDecodedPlan (Plan.isScheduledWeekly >> Expect.equal True)
+        , test "decodes a workout as the same workout every day" <|
+            \_ ->
+                Plan.decode Fixtures.everyDayPlanYaml
+                    |> Result.map (\plan -> List.map (\day -> Plan.daysMap day plan |> Maybe.map (\daysMap -> ( daysMap.rounds, List.map Plan.stepName (Ziplist.toList daysMap.steps) ))) allDays)
+                    |> Expect.equal (Ok (List.repeat (List.length allDays) (Just ( Fixtures.everyDayRounds, [ "Squishee squats", defaultBreakName ] ))))
+        , test "a plan with a workout isn't scheduled weekly" <|
+            \_ ->
+                Plan.decode Fixtures.everyDayPlanYaml
+                    |> Result.map Plan.isScheduledWeekly
+                    |> Expect.equal (Ok False)
+        , test "fails when both a planning and a workout are given" <|
+            \_ -> Plan.decode Fixtures.planningAndWorkoutYaml |> Expect.err
+        , test "fails when neither a planning nor a workout is given" <|
+            \_ -> Plan.decode Fixtures.planWithoutScheduleYaml |> Expect.err
         , test "fails when the required description is missing" <|
             \_ ->
                 Plan.decode Fixtures.planMissingDescriptionYaml
@@ -244,7 +260,12 @@ dayTests =
 weekdaysTests : Test
 weekdaysTests =
     describe "weekdays"
-        [ test "lists every day starting on Sunday with its scheduled flag" <|
+        [ test "every day has a workout in a plan scheduled every day" <|
+            \_ ->
+                Plan.decode Fixtures.everyDayPlanYaml
+                    |> Result.map (Plan.weekdays >> List.all Tuple.second)
+                    |> Expect.equal (Ok True)
+        , test "lists every day starting on Sunday with its scheduled flag" <|
             \_ ->
                 expectDecodedPlan
                     (Plan.weekdays

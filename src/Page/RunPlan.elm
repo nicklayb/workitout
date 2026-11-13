@@ -15,6 +15,7 @@ import Json.Decode exposing (Decoder)
 import Music
 import Music.Port
 import Plan exposing (Amount(..), Day(..), Plan, Step)
+import Plan.Estimate
 import PlanDraft.Yaml
 import Random
 import Resource exposing (Resource)
@@ -605,10 +606,28 @@ viewSteps model =
             div []
                 [ viewRoundCounter model
                 , ul [ class "space-y-1" ] (Ziplist.map viewStep daysMap.steps)
+                , viewEstimate (Settings.preRoundDelaySeconds (settings model)) daysMap
                 ]
 
         Nothing ->
             p [ class "px-3 py-6 text-center text-gray-400" ] [ text ("Nothing planned for " ++ Plan.dayToString model.currentDay) ]
+
+
+{-| Estimated duration of the whole workout, pre-round delay included.
+-}
+viewEstimate : Int -> Plan.DaysMap -> Html Msg
+viewEstimate preRoundDelaySeconds daysMap =
+    let
+        explanation =
+            "Estimated duration of all rounds, counting "
+                ++ String.fromInt Plan.Estimate.secondsPerRepetition
+                ++ " seconds per repetition and the pre-round delay"
+    in
+    div [ class "mt-2 flex items-center justify-between border-t border-gray-100 px-3 pt-3 text-gray-400", title explanation ]
+        [ span [ class "flex items-center gap-1 text-xs font-medium tracking-wide uppercase" ] [ Icon.clock "size-4", text "Estimated" ]
+        , span [ class "text-sm font-medium text-gray-600 tabular-nums" ]
+            [ text ("≈ " ++ Plan.Estimate.format (Plan.Estimate.daysMapSeconds preRoundDelaySeconds daysMap)) ]
+        ]
 
 
 {-| Short label of a step amount, such as `40s` or `×12`.
@@ -664,29 +683,46 @@ repetitionsLabel count =
         "reps"
 
 
-viewCompleted : Model -> Html Msg
-viewCompleted model =
+viewCompleted : Plan -> Model -> Html Msg
+viewCompleted plan model =
+    let
+        workoutName =
+            if Plan.isScheduledWeekly plan then
+                Plan.dayToString model.currentDay ++ "'s workout"
+
+            else
+                "the workout"
+    in
     div [ class "flex flex-col items-center justify-center px-6 py-12 text-center sm:py-20" ]
         [ span [ class "mb-1 text-xs font-medium tracking-wide text-gray-400 uppercase" ] [ text "Workout completed" ]
         , h3 [ class "mb-3 text-3xl font-bold tracking-tight text-gray-800" ] [ text "Well done!" ]
         , p [ class "mb-8 max-w-md text-gray-500" ]
-            [ text ("You completed all " ++ String.fromInt model.currentRound ++ " rounds of " ++ Plan.dayToString model.currentDay ++ "'s workout.") ]
+            [ text ("You completed all " ++ String.fromInt model.currentRound ++ " rounds of " ++ workoutName ++ ".") ]
         , button [ onClick Restart, class (Button.primaryClasses ++ " px-10 py-3 text-lg") ] [ text "Restart" ]
         ]
 
 
-viewCurrentStep : Model -> Html Msg
-viewCurrentStep model =
+viewCurrentStep : Plan -> Model -> Html Msg
+viewCurrentStep plan model =
     case currentStep model of
         Just step ->
             if model.isCompleted then
-                viewCompleted model
+                viewCompleted plan model
 
             else
                 viewActiveStep step model
 
         Nothing ->
-            p [ class "px-6 py-12 text-center text-gray-400" ] [ text "Pick a day with a workout to get started" ]
+            p [ class "px-6 py-12 text-center text-gray-400" ] [ text (noStepMessage plan) ]
+
+
+noStepMessage : Plan -> String
+noStepMessage plan =
+    if Plan.isScheduledWeekly plan then
+        "Pick a day with a workout to get started"
+
+    else
+        "This plan has no step yet"
 
 
 viewActiveStep : Step -> Model -> Html Msg
@@ -787,9 +823,15 @@ viewWeekday model ( weekday, _ ) =
         [ text (String.slice 0 weekdayAbbreviationLength (Plan.dayToString weekday)) ]
 
 
+{-| Days to pick from, only for plans having a workout per weekday.
+-}
 viewWeek : Plan -> Model -> Html Msg
 viewWeek plan model =
-    div [ class "flex gap-1 rounded-xl bg-gray-100 p-1" ] (List.map (viewWeekday model) (Plan.weekdays plan))
+    if Plan.isScheduledWeekly plan then
+        div [ class "flex gap-1 rounded-xl bg-gray-100 p-1" ] (List.map (viewWeekday model) (Plan.weekdays plan))
+
+    else
+        text ""
 
 
 viewPlan : Plan -> Model -> Html Msg
@@ -801,7 +843,7 @@ viewPlan plan model =
             ]
         , section [ class (Card.classes ++ " min-w-0 flex-1") ]
             [ viewPlanHeader model.source plan
-            , viewCurrentStep model
+            , viewCurrentStep plan model
             , viewActiveSettings (settings model)
             ]
         ]

@@ -5,6 +5,7 @@ away into the local storage; new and forked plans are only saved on their
 first change.
 -}
 
+import BoundedInt
 import CustomPlans exposing (CustomPlan, CustomPlans)
 import CustomPlans.Storage as Storage
 import Difficulty exposing (Difficulty)
@@ -15,7 +16,8 @@ import Html exposing (Html, a, aside, button, div, h2, li, p, section, span, tex
 import Html.Attributes exposing (class, href, title, type_)
 import Html.Events exposing (onClick)
 import Plan exposing (Day)
-import PlanDraft exposing (Measure(..), PlanDraft, StepDraft, StepKind(..))
+import Plan.Estimate
+import PlanDraft exposing (Measure(..), PlanDraft, Schedule(..), StepDraft, StepKind(..))
 import PlanDraft.Yaml
 import Route exposing (EditorTarget(..))
 import Session exposing (Session)
@@ -59,6 +61,7 @@ type Edit
     | ChangedAuthorName String
     | ChangedAuthorEmail String
     | ChangedDifficulty Difficulty
+    | ChangedSchedule Schedule
     | ChangedRounds Int
     | AddedStep StepKind
     | RemovedStep Int
@@ -187,6 +190,9 @@ applyEdit day edit =
 
         ChangedDifficulty difficulty ->
             PlanDraft.setDifficulty difficulty
+
+        ChangedSchedule schedule ->
+            PlanDraft.setSchedule day schedule
 
         ChangedRounds rounds ->
             PlanDraft.setRounds day rounds
@@ -420,6 +426,20 @@ viewStoredPlan model customPlan =
 
 plannedDaysLabel : PlanDraft -> String
 plannedDaysLabel draft =
+    case PlanDraft.schedule draft of
+        Weekly ->
+            weeklyPlannedDaysLabel draft
+
+        EveryDay ->
+            if List.isEmpty (PlanDraft.everyDay draft).steps then
+                "Nothing planned yet"
+
+            else
+                "Every day"
+
+
+weeklyPlannedDaysLabel : PlanDraft -> String
+weeklyPlannedDaysLabel draft =
     let
         count =
             List.length (List.filter (\day -> not (List.isEmpty (PlanDraft.day day draft).steps)) Plan.allDays)
@@ -507,19 +527,32 @@ viewEditorHeader model draft =
                 { fileName = PlanDraft.Yaml.fileName draft, mimeType = PlanDraft.Yaml.mimeType, content = PlanDraft.Yaml.encode draft }
                 [ class (Button.secondaryClasses ++ " px-5 py-2") ]
                 [ text "Export" ]
-            , viewRunLink model.selection model.selectedDay
+            , viewRunLink model.selection (runDay model.selectedDay draft)
             ]
         ]
 
 
-{-| Link running the plan on the selected day. A plan has to be saved to be
-run, since it is opened by its identifier.
+{-| Day to run the plan on: the selected one for weekly plans, none for plans
+having the same workout every day.
 -}
-viewRunLink : Selection -> Day -> Html Msg
-viewRunLink selection selectedDay =
+runDay : Day -> PlanDraft -> Maybe Day
+runDay selectedDay draft =
+    case PlanDraft.schedule draft of
+        Weekly ->
+            Just selectedDay
+
+        EveryDay ->
+            Nothing
+
+
+{-| Link running the plan, on a given day for weekly plans. A plan has to be
+saved to be run, since it is opened by its identifier.
+-}
+viewRunLink : Selection -> Maybe Day -> Html Msg
+viewRunLink selection maybeDay =
     case selection of
         Stored id ->
-            a [ href (Route.routeToString (Route.RunPlan (Route.Custom id) (Just selectedDay))), class (Button.primaryClasses ++ " px-5 py-2") ] [ text "Run" ]
+            a [ href (Route.routeToString (Route.RunPlan (Route.Custom id) maybeDay)), class (Button.primaryClasses ++ " px-5 py-2") ] [ text "Run" ]
 
         _ ->
             span
@@ -550,12 +583,49 @@ viewDetails draft =
                 , onSelect = Edited << ChangedDifficulty
                 }
             )
+        , Field.view "Schedule"
+            (Select.view
+                { label = "Schedule"
+                , options = [ Weekly, EveryDay ]
+                , selected = PlanDraft.schedule draft
+                , toKey = scheduleKey
+                , toLabel = scheduleLabel
+                , onSelect = Edited << ChangedSchedule
+                }
+            )
         ]
 
 
+scheduleKey : Schedule -> String
+scheduleKey schedule =
+    case schedule of
+        Weekly ->
+            "weekly"
+
+        EveryDay ->
+            "every-day"
+
+
+scheduleLabel : Schedule -> String
+scheduleLabel schedule =
+    case schedule of
+        Weekly ->
+            "A workout per weekday"
+
+        EveryDay ->
+            "Same workout every day"
+
+
+{-| Days to pick from, only for plans having a workout per weekday.
+-}
 viewWeek : Day -> PlanDraft -> Html Msg
 viewWeek selectedDay draft =
-    div [ class "flex gap-1 rounded-xl bg-gray-100 p-1" ] (List.map (viewWeekday selectedDay draft) Plan.allDays)
+    case PlanDraft.schedule draft of
+        Weekly ->
+            div [ class "mb-4 flex gap-1 rounded-xl bg-gray-100 p-1" ] (List.map (viewWeekday selectedDay draft) Plan.allDays)
+
+        EveryDay ->
+            text ""
 
 
 viewWeekday : Day -> PlanDraft -> Day -> Html Msg
@@ -594,11 +664,12 @@ viewDay day draft =
         stepCount =
             List.length dayDraft.steps
     in
-    div [ class "flex flex-col gap-4 pt-4" ]
+    div [ class "flex flex-col gap-4" ]
         [ div [ class "flex items-center justify-between gap-4" ]
-            [ span [ class "font-medium text-gray-800 capitalize" ] [ text (Plan.dayToString day) ]
+            [ span [ class "font-medium text-gray-800 capitalize" ] [ text (workoutTitle day draft) ]
             , div [ class "flex items-center gap-2" ]
-                [ span [ class Field.labelClasses ] [ text "Rounds" ]
+                [ viewEstimate dayDraft
+                , span [ class Field.labelClasses ] [ text "Rounds" ]
                 , NumberInput.view { label = "Rounds", value = dayDraft.rounds, onChange = Edited << ChangedRounds, extraClasses = "w-20" }
                 ]
             ]
@@ -612,6 +683,39 @@ viewDay day draft =
             , button [ type_ "button", onClick (Edited (AddedStep Break)), class (Button.secondaryClasses ++ " px-4 py-1.5 text-sm") ] [ text "+ Break" ]
             ]
         ]
+
+
+{-| Estimated duration of a day, hidden while it has no step.
+-}
+viewEstimate : PlanDraft.DayDraft -> Html Msg
+viewEstimate dayDraft =
+    if List.isEmpty dayDraft.steps then
+        text ""
+
+    else
+        let
+            seconds =
+                Plan.Estimate.workoutSeconds
+                    { rounds = BoundedInt.value dayDraft.rounds
+                    , amounts = List.map PlanDraft.stepAmount dayDraft.steps
+                    , extraSecondsPerRound = 0
+                    }
+
+            explanation =
+                "Estimated duration of all rounds, counting " ++ String.fromInt Plan.Estimate.secondsPerRepetition ++ " seconds per repetition"
+        in
+        span [ class "mr-2 flex shrink-0 items-center gap-1 text-sm whitespace-nowrap text-gray-400 tabular-nums", title explanation ]
+            [ Icon.clock "size-4 shrink-0", text ("≈ " ++ Plan.Estimate.format seconds) ]
+
+
+workoutTitle : Day -> PlanDraft -> String
+workoutTitle day draft =
+    case PlanDraft.schedule draft of
+        Weekly ->
+            Plan.dayToString day
+
+        EveryDay ->
+            "Every day"
 
 
 stepKindLabel : StepKind -> String

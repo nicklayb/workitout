@@ -8,7 +8,7 @@ import Difficulty exposing (Difficulty(..))
 import Expect
 import Fixtures
 import Plan exposing (Amount(..), Day(..))
-import PlanDraft exposing (Measure(..), PlanDraft, StepKind(..))
+import PlanDraft exposing (Measure(..), PlanDraft, Schedule(..), StepKind(..))
 import PlanDraft.Yaml
 import Test exposing (Test, describe, test)
 import Ziplist
@@ -53,6 +53,25 @@ suite =
         [ describe "round trip"
             [ test "an empty draft" <|
                 \_ -> roundTrip PlanDraft.empty |> Expect.equal (Ok PlanDraft.empty)
+            , test "an every day plan" <|
+                \_ ->
+                    let
+                        draft =
+                            PlanDraft.Yaml.decode Fixtures.everyDayPlanYaml
+                    in
+                    Result.andThen roundTrip draft |> Expect.equal draft
+            , test "an every day plan without steps" <|
+                \_ ->
+                    let
+                        draft =
+                            PlanDraft.setSchedule Monday EveryDay PlanDraft.empty
+                    in
+                    roundTrip draft |> Result.map PlanDraft.schedule |> Expect.equal (Ok EveryDay)
+            , test "an every day plan is written as a workout" <|
+                \_ ->
+                    PlanDraft.Yaml.decode Fixtures.everyDayPlanYaml
+                        |> Result.map (PlanDraft.Yaml.encode >> (\yaml -> ( String.contains "workout:" yaml, String.contains "planning:" yaml )))
+                        |> Expect.equal (Ok ( True, False ))
             , test "a hosted plan" <|
                 \_ -> Result.andThen roundTrip duffDraft |> Expect.equal duffDraft
             , test "a plan with an unnamed effort" <|

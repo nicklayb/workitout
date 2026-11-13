@@ -6,8 +6,8 @@ the `plans` branch.
 
 import BoundedInt
 import Difficulty
-import Plan exposing (Plan)
-import PlanDraft exposing (DayDraft, Measure(..), PlanDraft, StepDraft, StepKind(..))
+import Plan exposing (Amount(..), Plan)
+import PlanDraft exposing (DayDraft, PlanDraft, Schedule(..), StepDraft, StepKind(..))
 import Yaml.Encode as Encode exposing (Encoder)
 
 
@@ -44,7 +44,8 @@ toPlan draft =
     Plan.decode (encode draft)
 
 
-{-| Writes a draft as a plan file. Days without any step are left out.
+{-| Writes a draft as a plan file. Days without any step are left out, as is
+the schedule not in use.
 -}
 encode : PlanDraft -> String
 encode draft =
@@ -97,7 +98,7 @@ planEncoder draft =
               ]
             , optionalField "forkedFrom" (PlanDraft.forkedFrom draft)
             , [ ( "author", authorEncoder draft )
-              , ( "planning", Encode.record [ ( "days", daysEncoder draft ) ] )
+              , scheduleField draft
               ]
             ]
         )
@@ -112,6 +113,18 @@ authorEncoder draft =
             , optionalField "github" (PlanDraft.authorGithub draft)
             ]
         )
+
+
+{-| A weekly `planning`, or the `workout` of every day.
+-}
+scheduleField : PlanDraft -> ( String, Encoder )
+scheduleField draft =
+    case PlanDraft.schedule draft of
+        Weekly ->
+            ( "planning", Encode.record [ ( "days", daysEncoder draft ) ] )
+
+        EveryDay ->
+            ( "workout", dayEncoder (PlanDraft.everyDay draft) )
 
 
 daysEncoder : PlanDraft -> Encoder
@@ -169,16 +182,14 @@ stepEncoder step =
         )
 
 
-{-| Breaks always last a duration; efforts follow their measure.
--}
 amountField : StepDraft -> ( String, Encoder )
 amountField step =
-    case ( step.kind, step.measure ) of
-        ( Effort, Repetitions ) ->
-            ( "count", Encode.int (BoundedInt.value step.count) )
+    case PlanDraft.stepAmount step of
+        Count count ->
+            ( "count", Encode.int count )
 
-        _ ->
-            ( "seconds", Encode.int (BoundedInt.value step.seconds) )
+        Duration seconds ->
+            ( "seconds", Encode.int seconds )
 
 
 optionalField : String -> Maybe String -> List ( String, Encoder )

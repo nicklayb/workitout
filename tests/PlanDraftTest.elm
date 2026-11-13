@@ -8,8 +8,8 @@ import BoundedInt
 import Difficulty exposing (Difficulty(..))
 import Expect
 import Fixtures
-import Plan exposing (Day(..))
-import PlanDraft exposing (Measure(..), PlanDraft, StepDraft, StepKind(..))
+import Plan exposing (Amount(..), Day(..))
+import PlanDraft exposing (Measure(..), PlanDraft, Schedule(..), StepDraft, StepKind(..))
 import Test exposing (Test, describe, test)
 
 
@@ -65,10 +65,58 @@ repetitionsDraft =
         |> Result.withDefault PlanDraft.empty
 
 
+everyDayDraft : PlanDraft
+everyDayDraft =
+    Plan.decode Fixtures.everyDayPlanYaml
+        |> Result.map PlanDraft.fromPlan
+        |> Result.withDefault PlanDraft.empty
+
+
+stepNames : Day -> PlanDraft -> List String
+stepNames day draft =
+    PlanDraft.day day draft |> .steps |> List.map .name
+
+
+scheduleTests : Test
+scheduleTests =
+    describe "schedule"
+        [ test "an empty draft is scheduled weekly" <|
+            \_ -> PlanDraft.schedule PlanDraft.empty |> Expect.equal Weekly
+        , test "fromPlan keeps a workout for every day" <|
+            \_ -> ( PlanDraft.schedule everyDayDraft, stepNames Thursday everyDayDraft ) |> Expect.equal ( EveryDay, [ "Squishee squats", "" ] )
+        , test "every day plans give the same workout whatever the day" <|
+            \_ -> List.map (\day -> stepNames day everyDayDraft) [ Monday, Saturday ] |> Expect.equal [ [ "Squishee squats", "" ], [ "Squishee squats", "" ] ]
+        , test "edits of an every day plan apply to every day" <|
+            \_ -> PlanDraft.setStepName Monday 0 "Kwik-E squats" everyDayDraft |> stepNames Friday |> Expect.equal [ "Kwik-E squats", "" ]
+        , test "switching to every day starts from the given day's workout" <|
+            \_ -> PlanDraft.setSchedule Monday EveryDay kidsDraft |> stepNames Sunday |> Expect.equal [ "Bart", "Lisa", "Maggie" ]
+        , test "switching to every day keeps a workout that already has steps" <|
+            \_ ->
+                PlanDraft.setSchedule Monday Weekly everyDayDraft
+                    |> PlanDraft.setStepName Monday 0 "Homer"
+                    |> PlanDraft.setSchedule Monday EveryDay
+                    |> stepNames Monday
+                    |> Expect.equal [ "Squishee squats", "" ]
+        , test "switching back to weekly keeps the weekday workouts" <|
+            \_ ->
+                kidsDraft
+                    |> PlanDraft.setSchedule Monday EveryDay
+                    |> PlanDraft.removeStep Monday 0
+                    |> PlanDraft.setSchedule Monday Weekly
+                    |> stepNames Monday
+                    |> Expect.equal [ "Bart", "Lisa", "Maggie" ]
+        , test "switching to weekly starts the given day from the every day workout" <|
+            \_ -> PlanDraft.setSchedule Wednesday Weekly everyDayDraft |> stepNames Wednesday |> Expect.equal [ "Squishee squats", "" ]
+        , test "switching to weekly leaves the other days empty" <|
+            \_ -> PlanDraft.setSchedule Wednesday Weekly everyDayDraft |> stepNames Thursday |> Expect.equal []
+        ]
+
+
 suite : Test
 suite =
     describe "PlanDraft"
-        [ describe "empty"
+        [ scheduleTests
+        , describe "empty"
             [ test "has no step on any day" <|
                 \_ -> List.map (\day -> PlanDraft.effortCount day PlanDraft.empty) Plan.allDays |> Expect.equal (List.repeat 7 0)
             , test "a day defaults to a single round" <|
@@ -135,6 +183,22 @@ suite =
                         |> Expect.equal (Just 45)
             , test "setStepCount sets the repetitions" <|
                 \_ -> PlanDraft.setStepCount Monday 0 15 kidsDraft |> firstMondayCount |> Expect.equal (Just 15)
+            , test "stepAmount of an effort follows its measure" <|
+                \_ ->
+                    kidsDraft
+                        |> PlanDraft.setStepCount Monday 0 15
+                        |> PlanDraft.setStepMeasure Monday 0 Repetitions
+                        |> firstMondayStep
+                        |> Maybe.map PlanDraft.stepAmount
+                        |> Expect.equal (Just (Count 15))
+            , test "stepAmount of a break is always a duration" <|
+                \_ ->
+                    kidsDraft
+                        |> PlanDraft.setStepMeasure Monday 0 Repetitions
+                        |> PlanDraft.setStepKind Monday 0 Break
+                        |> firstMondayStep
+                        |> Maybe.map PlanDraft.stepAmount
+                        |> Expect.equal (Just (Duration 30))
             , test "other days are left untouched" <|
                 \_ -> PlanDraft.effortCount Tuesday kidsDraft |> Expect.equal 0
             ]
