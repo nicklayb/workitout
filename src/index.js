@@ -37,20 +37,65 @@ app.ports && app.ports.storeCustomPlans && app.ports.storeCustomPlans.subscribe(
   storeOrRemove(CUSTOM_PLANS_KEY, value)
 })
 
-app.ports.playSound.subscribe(function(message) {
-  const audio = new Audio(`/sounds/${message}.mp3`)
-  audio.play()
-});
-
 // Background music: a single audio element, so the user's click on Start
 // unlocks playback for every later track. The position of the track left by
 // each channel is kept to resume it when the channel plays it again.
 const music = new Audio()
 const savedTrackByChannel = {}
 let playingTrack = null
+let musicVolume = 1
+
+// Sound effects duck the music: its volume drops while an effect plays and
+// comes back once no effect played for a moment. The delay outlasts the gap
+// between two countdown beeps, so the music stays lowered from the first beep
+// to the long beep starting the next step instead of pumping every second.
+const DUCKED_MUSIC_VOLUME_RATIO = 0.2
+const DUCK_RELEASE_DELAY_MS = 1200
+let playingSoundEffectCount = 0
+let duckReleaseTimeout = null
+
+function isMusicDucked() {
+  return playingSoundEffectCount > 0 || duckReleaseTimeout !== null
+}
+
+function applyMusicVolume() {
+  music.volume = isMusicDucked() ? musicVolume * DUCKED_MUSIC_VOLUME_RATIO : musicVolume
+}
+
+function startDucking() {
+  clearTimeout(duckReleaseTimeout)
+  duckReleaseTimeout = null
+  playingSoundEffectCount += 1
+  applyMusicVolume()
+}
+
+function stopDucking() {
+  playingSoundEffectCount -= 1
+  if (playingSoundEffectCount === 0) {
+    duckReleaseTimeout = setTimeout(function() {
+      duckReleaseTimeout = null
+      applyMusicVolume()
+    }, DUCK_RELEASE_DELAY_MS)
+  }
+}
+
+app.ports.playSound.subscribe(function(sound) {
+  const soundEffect = new Audio(`/sounds/${sound}.mp3`)
+  let isFinished = false
+  function finish() {
+    if (isFinished) return
+    isFinished = true
+    stopDucking()
+  }
+  startDucking()
+  soundEffect.addEventListener("ended", finish)
+  soundEffect.addEventListener("error", finish)
+  soundEffect.play().catch(finish)
+})
 
 function playMusic({ channel, url, volume }) {
-  music.volume = volume
+  musicVolume = volume
+  applyMusicVolume()
   if (playingTrack === null || playingTrack.url !== url) {
     if (playingTrack !== null) {
       savedTrackByChannel[playingTrack.channel] = { url: playingTrack.url, time: music.currentTime }

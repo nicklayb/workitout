@@ -24,6 +24,14 @@ stepCount =
     12
 
 
+{-| Final seconds window, between the step duration and the duration plus
+the extra seconds.
+-}
+finalSeconds : Int
+finalSeconds =
+    4
+
+
 tickTimes : Int -> StepProgress -> StepProgress
 tickTimes count progress =
     List.foldl (\_ accumulator -> StepProgress.tick accumulator) progress (List.range 1 count)
@@ -51,6 +59,20 @@ suite =
                 \_ -> StepProgress.start 0 (Duration stepSeconds) |> tickTimes stepSeconds |> StepProgress.isFinished |> Expect.equal True
             , test "never awaits the user" <|
                 \_ -> StepProgress.start 0 (Duration stepSeconds) |> tickTimes stepSeconds |> StepProgress.isAwaitingDone |> Expect.equal False
+            ]
+        , describe "finalCountdownSecond"
+            [ test "is the remaining second during the final seconds" <|
+                \_ -> StepProgress.start 0 (Duration stepSeconds) |> tickTimes 1 |> StepProgress.finalCountdownSecond finalSeconds |> Expect.equal (Just (stepSeconds - 1))
+            , test "is nothing before the final seconds" <|
+                \_ -> StepProgress.start extraSeconds (Duration stepSeconds) |> StepProgress.finalCountdownSecond finalSeconds |> Expect.equal Nothing
+            , test "is nothing once the countdown is over" <|
+                \_ -> StepProgress.start 0 (Duration stepSeconds) |> tickTimes stepSeconds |> StepProgress.finalCountdownSecond finalSeconds |> Expect.equal Nothing
+            , test "follows the preparation of a repetition step" <|
+                \_ -> StepProgress.start extraSeconds (Count stepCount) |> StepProgress.finalCountdownSecond finalSeconds |> Expect.equal (Just extraSeconds)
+            , test "is nothing while awaiting the user" <|
+                \_ -> StepProgress.start 0 (Count stepCount) |> StepProgress.finalCountdownSecond finalSeconds |> Expect.equal Nothing
+            , test "is nothing when idle" <|
+                \_ -> StepProgress.idle |> StepProgress.finalCountdownSecond finalSeconds |> Expect.equal Nothing
             ]
         , describe "repetition step"
             [ test "awaits the user right away without extra seconds" <|
