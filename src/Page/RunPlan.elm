@@ -10,6 +10,7 @@ import GitHub
 import Html exposing (Html, a, aside, button, div, h2, h3, input, label, li, p, section, span, text, ul)
 import Html.Attributes exposing (attribute, class, href, rel, target, title, type_)
 import Html.Events exposing (on, onClick)
+import Html.Keyed
 import Http
 import Json.Decode exposing (Decoder)
 import Music
@@ -388,8 +389,10 @@ completeStep model =
         ( completedModel, send Start )
 
 
-countdownBeepSeconds : Int
-countdownBeepSeconds =
+{-| Last seconds of a countdown, signaled by beeps and a pulse of the screen.
+-}
+finalCountdownSeconds : Int
+finalCountdownSeconds =
     5
 
 
@@ -400,7 +403,7 @@ tickSoundEffect : Model -> StepProgress -> Cmd msg
 tickSoundEffect model stepProgress =
     case StepProgress.remaining stepProgress of
         Just remaining ->
-            if remaining <= countdownBeepSeconds then
+            if remaining <= finalCountdownSeconds then
                 playSoundEffect model "beep"
 
             else
@@ -960,9 +963,33 @@ viewUploadPath maybeError =
 
 view : Model -> { content : Html Msg, title : String }
 view model =
-    { content = viewContent model
+    { content = div [] [ viewContent model, viewCountdownPulse model ]
     , title = "Run Plan"
     }
+
+
+{-| Pulses the edges of the whole screen once per second during the final
+seconds of a countdown. Keying the overlay by the second recreates it on each
+tick, which restarts its fading animation.
+-}
+viewCountdownPulse : Model -> Html Msg
+viewCountdownPulse model =
+    Html.Keyed.node "div"
+        []
+        (case StepProgress.finalCountdownSecond finalCountdownSeconds model.stepProgress of
+            Just second ->
+                [ ( String.fromInt second
+                  , div
+                        [ class "pointer-events-none fixed inset-0 z-50 animate-countdown-pulse shadow-[inset_0_0_6rem_1rem_var(--color-pink-500)] motion-reduce:hidden"
+                        , attribute "aria-hidden" "true"
+                        ]
+                        []
+                  )
+                ]
+
+            Nothing ->
+                []
+        )
 
 
 putLoadedPlan : Plan -> Model -> Model

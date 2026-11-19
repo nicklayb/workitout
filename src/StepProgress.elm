@@ -1,4 +1,4 @@
-module StepProgress exposing (StepProgress, idle, isAwaitingDone, isFinished, isIdle, isTicking, remaining, start, tick)
+module StepProgress exposing (StepProgress, finalCountdownSecond, idle, isAwaitingDone, isFinished, isIdle, isTicking, remaining, start, tick)
 
 {-| Progress of the step being run. Timed steps count down to zero, while
 repetition steps wait for the user to tell they are done.
@@ -119,3 +119,23 @@ remaining progress =
 
         _ ->
             Nothing
+
+
+{-| Second shown by a running countdown when it is among the last
+`finalSeconds` ones, so the view can pulse along with it.
+-}
+finalCountdownSecond : Int -> StepProgress -> Maybe Int
+finalCountdownSecond finalSeconds progress =
+    if isTicking progress then
+        remaining progress
+            |> Maybe.andThen
+                (\second ->
+                    if second >= 1 && second <= finalSeconds then
+                        Just second
+
+                    else
+                        Nothing
+                )
+
+    else
+        Nothing
